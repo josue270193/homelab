@@ -1,0 +1,26 @@
+# Secrets – only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Data volumes (bind-mounted service data, DB files, backups)
+data/
+volumes/
+backups/
+**/data/
+*.sql.gz
+*.dump
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local tooling
+.codegraph/
+.claude/settings.local.json
