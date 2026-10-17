@@ -16,6 +16,9 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - [ROADMAP.md](ROADMAP.md) – epics, issues and acceptance criteria.
 - [CLAUDE.md](CLAUDE.md) – working agreement for Claude Code (branching, rules).
 - Work is tracked in GitHub Issues: `gh issue list`.
+- Board: [Homelab project](https://github.com/users/josue270193/projects/2) with Status columns
+  **Backlog → Ready → In progress → Done**. New issues from `./create-issues.sh` land there when run
+  with `PROJECT="Homelab"` (needs `gh auth refresh -s project`).
 
 ## Getting started
 
