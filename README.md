@@ -22,6 +22,18 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 
 ## Getting started
 
+Prerequisites on the Mac: [GitHub CLI](https://cli.github.com/) authenticated with the `project`
+scope (needed for the board and `create-issues.sh`):
+
+```bash
+brew install gh
+gh auth login            # GitHub.com, SSH
+gh auth refresh -s project
+gh issue list            # should list the repo's issues
+```
+
+Then:
+
 ```bash
 git clone git@github.com:josue270193/homelab.git
 cd homelab
