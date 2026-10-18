@@ -32,6 +32,15 @@ gh auth refresh -s project
 gh issue list            # should list the repo's issues
 ```
 
+Docker runtime on the Mac: **Docker Desktop** (Compose v2 plugin and buildx included; free for
+personal use). It runs amd64 images under emulation, so both target architectures can be tested locally:
+
+```bash
+docker compose version                                   # Docker Compose version v5.x
+docker run --rm --platform linux/amd64 alpine:3.20 uname -m   # x86_64
+docker run --rm --platform linux/arm64 alpine:3.20 uname -m   # aarch64
+```
+
 Then:
 
 ```bash
