@@ -1,7 +1,25 @@
 name: homelab
 
 # Services are added per issue (Traefik in E1, cloudflared in E2, ...).
-services: {}
+services:
+  # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
+  # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1   # list/inspect containers (labels, IPs)
+      NETWORKS: 1     # resolve container networks
+      EVENTS: 1       # watch start/stop to update routes
+      VERSION: 1
+      PING: 1
+      POST: 0         # deny all write requests
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
 
 networks:
   # External-facing: Traefik and every service it routes to.
