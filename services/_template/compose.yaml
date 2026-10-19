@@ -1,0 +1,35 @@
+# Template for exposing one image through Traefik as its own stack.
+#
+#   cp -r services/_template services/<name>
+#   # edit every line marked CHANGE, then from services/<name>:
+#   docker compose --env-file ../../.env up -d
+#
+# Needs the main stack running first (it creates the `proxy` network).
+# Runs as-is: serves whoami at http://template.localhost
+
+name: template                                # CHANGE: stack name (unique)
+
+services:
+  app:
+    image: traefik/whoami:v1.12.0             # CHANGE: pinned image, amd64 + arm64, never :latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # environment:                            # secrets come from ../../.env, never hard-coded
+    #   API_KEY: ${TEMPLATE_API_KEY}
+    networks:
+      - proxy
+      # - internal                            # only if it must talk to a database
+    labels:
+      traefik.enable: "true"
+      # Router and service names must be unique across ALL stacks.
+      traefik.http.routers.template.rule: Host(`template.${DOMAIN:-localhost}`)   # CHANGE: router name + host
+      traefik.http.routers.template.entrypoints: web
+      traefik.http.services.template.loadbalancer.server.port: "80"              # CHANGE: service name + container port
+    # No `ports:` — the service is reachable only through Traefik.
+
+networks:
+  proxy:
+    external: true
+  # internal:
+  #   external: true

@@ -84,6 +84,37 @@ Notes:
   returns 404 while `health: starting`.
 - Port 80 on the Mac must be free; stop any other local stack serving `http://localhost` first.
 
+## Expose a new image
+
+Each extra service is its own stack under `services/<name>/`, joined to the shared `proxy` network.
+You only decide two things: the **host** (subdomain) and the **container port** the app listens on.
+
+```bash
+cp -r services/_template services/myapp
+```
+
+Edit `services/myapp/compose.yaml` (lines marked `CHANGE`):
+
+| Field | Example | Notes |
+|---|---|---|
+| `name:` | `myapp` | Stack name, unique. |
+| `image:` | `ghcr.io/me/myapp:1.2.3` | Pinned tag with amd64 + arm64. |
+| router rule | `traefik.http.routers.myapp.rule: Host(\`myapp.${DOMAIN:-localhost}\`)` | The host. Router name (`myapp`) must be unique across all stacks. |
+| service port | `traefik.http.services.myapp.loadbalancer.server.port: "8080"` | Port **inside** the container, not a host port. |
+
+Start it (main stack must already be up, it owns the `proxy` network):
+
+```bash
+cd services/myapp
+docker compose --env-file ../../.env up -d
+curl -I http://myapp.localhost
+```
+
+- `--env-file ../../.env` gives it `DOMAIN` and secrets; without it the host falls back to `*.localhost`.
+- Never add `ports:`; Traefik is the only way in.
+- Needs a database? Also join `internal` (uncomment it in both places).
+- `network proxy declared as external, but could not be found` → start the main stack first.
+
 ## Repository rules
 
 - Secrets only in `.env` (git-ignored). Keep `.env.example` in sync when adding variables.
