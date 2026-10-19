@@ -67,6 +67,16 @@ docker compose up -d
 - A service on `internal` only cannot reach the internet. If it needs to (e.g. an API calling
   external APIs), it also joins `proxy`; add that on purpose, not by default.
 
+## Services
+
+| Service               | Network    | Notes |
+|-----------------------|------------|-------|
+| `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
+
+Nothing besides `docker-socket-proxy` mounts `/var/run/docker.sock`. If a new service needs
+another Docker API section, enable only that variable on the proxy (see
+[tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy#grant-or-revoke-access-to-certain-api-sections)).
+
 ## Repository rules
 
 - Secrets only in `.env` (git-ignored). Keep `.env.example` in sync when adding variables.
