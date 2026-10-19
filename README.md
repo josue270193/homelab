@@ -49,7 +49,23 @@ cd homelab
 cp .env.example .env   # fill in real values; .env is git-ignored
 ```
 
-The Compose stack itself is added in epic E1 (see ROADMAP.md).
+The Compose stack lives in `compose.yaml` (services are added through epic E1, see ROADMAP.md):
+
+```bash
+docker compose config   # validate
+docker compose up -d
+```
+
+## Networks
+
+| Network    | Purpose                                              | Internet egress |
+|------------|------------------------------------------------------|-----------------|
+| `proxy`    | Traefik and every service it routes to               | yes             |
+| `internal` | Databases, docker-socket-proxy (`internal: true`)    | **no**          |
+
+- Both have fixed names, so other stacks (Dockge, `services/*`) join them with `external: true`.
+- A service on `internal` only cannot reach the internet. If it needs to (e.g. an API calling
+  external APIs), it also joins `proxy`; add that on purpose, not by default.
 
 ## Repository rules
 

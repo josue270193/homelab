@@ -1,0 +1,16 @@
+name: homelab
+
+# Services are added per issue (Traefik in E1, cloudflared in E2, ...).
+services: {}
+
+networks:
+  # External-facing: Traefik and every service it routes to.
+  # Fixed name so stacks outside this project (Dockge, services/*) can join it as `external: true`.
+  proxy:
+    name: proxy
+
+  # Private: databases and docker-socket-proxy. No published ports, no internet egress.
+  # A service that must reach the internet also joins `proxy` (or gets an explicit exception).
+  internal:
+    name: internal
+    internal: true
