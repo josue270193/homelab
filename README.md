@@ -71,11 +71,17 @@ docker compose up -d
 
 | Service               | Network    | Notes |
 |-----------------------|------------|-------|
+| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Nothing besides `docker-socket-proxy` mounts `/var/run/docker.sock`. If a new service needs
 another Docker API section, enable only that variable on the proxy (see
 [tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy#grant-or-revoke-access-to-certain-api-sections)).
+
+Notes:
+- Traefik ignores a container until its healthcheck passes; a labeled service with a healthcheck
+  returns 404 while `health: starting`.
+- Port 80 on the Mac must be free; stop any other local stack serving `http://localhost` first.
 
 ## Repository rules
 

@@ -2,6 +2,43 @@ name: homelab
 
 # Services are added per issue (Traefik in E1, cloudflared in E2, ...).
 services:
+  # Reverse proxy. Routes come only from labels on containers with traefik.enable=true.
+  traefik:
+    image: traefik:v3.7.15
+    restart: unless-stopped
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.docker=true
+      - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --api.dashboard=true
+      - --ping=true
+      - --log.level=INFO
+    ports:
+      # Loopback only: the dashboard has no auth, so it must not be reachable from the LAN.
+      - "127.0.0.1:80:80"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Traefik skips its own labels until healthy; check fast at boot so the dashboard is up in seconds.
+      start_period: 15s
+      start_interval: 2s
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - docker-socket-proxy
+    networks:
+      - proxy
+      - internal
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN:-localhost}`)
+      traefik.http.routers.dashboard.entrypoints: web
+      traefik.http.routers.dashboard.service: api@internal
+
   # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
   # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
   docker-socket-proxy:
