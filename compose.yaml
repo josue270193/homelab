@@ -39,6 +39,20 @@ services:
       traefik.http.routers.dashboard.entrypoints: web
       traefik.http.routers.dashboard.service: api@internal
 
+  # Test service: echoes request info. Route comes only from these labels.
+  whoami:
+    image: traefik/whoami:v1.12.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.whoami.rule: Host(`whoami.${DOMAIN:-localhost}`)
+      traefik.http.routers.whoami.entrypoints: web
+      traefik.http.services.whoami.loadbalancer.server.port: "80"
+
   # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
   # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
   docker-socket-proxy:
