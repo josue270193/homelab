@@ -174,6 +174,42 @@ services:
     networks:
       - internal
 
+  # Private DB access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY tcp/5432
+  # to postgres (tailscale/serve.json). Nothing is published on the host or the internet.
+  # Userspace networking: no NET_ADMIN / /dev/net/tun needed.
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    restart: unless-stopped
+    hostname: homelab-db
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}   # empty: container waits, login URL in `docker compose logs tailscale`
+      TS_HOSTNAME: homelab-db
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_AUTH_ONCE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
+    volumes:
+      - ./data/tailscale:/var/lib/tailscale
+      - ./tailscale/serve.json:/config/serve.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:9002/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 2s
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal   # reach postgres
+      - proxy      # egress to Tailscale coordination/relays (internal has none)
+
 volumes:
   postgres-data:
 
