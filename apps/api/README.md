@@ -28,6 +28,13 @@ docker buildx build --platform linux/amd64 --load -t homelab-api:amd64 .
   are separate image layers: a code change only rebuilds and pushes the small `application` layer.
 - Runs as non-root user `app`; `HEALTHCHECK` on `/actuator/health`; heap capped at 75% of the container limit.
 
+## CI
+
+[`.github/workflows/api-image.yml`](../../.github/workflows/api-image.yml) runs on every PR and push to
+`main` that touches `apps/api/`: builds `linux/amd64` + `linux/arm64` with buildx (tests run in the
+build), then starts the amd64 image and waits for `/actuator/health`. Nothing is pushed yet.
+Actions are pinned to commit SHAs; layer cache lives in the GitHub Actions cache.
+
 ## Not yet
 
-- Postgres + Flyway: #32. Exposed through Traefik: #33. Built by CI and pushed to GHCR: #21, #22.
+- Postgres + Flyway: #32. Exposed through Traefik: #33. Pushed to GHCR: #22.
