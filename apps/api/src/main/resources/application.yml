@@ -1,6 +1,14 @@
 spring:
   application:
     name: homelab-api
+  # Connection comes from the environment (compose.yaml): SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD.
+  # No default on purpose: without them the app fails at startup instead of using a wrong DB.
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # Flyway owns the schema; startup fails if entities don't match it
+  flyway:
+    enabled: true          # runs db/migration on startup, before JPA
 
 server:
   port: 8080
