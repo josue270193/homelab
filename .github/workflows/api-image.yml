@@ -63,9 +63,23 @@ jobs:
           tags: homelab-api:ci
           cache-from: type=gha,scope=api
 
-      - name: Smoke test /actuator/health
+      # Throwaway Postgres (same image as compose.yaml): the app runs Flyway on startup and refuses
+      # to start without a database. Its health includes the DB connection.
+      - name: Smoke test /actuator/health (with Postgres + Flyway)
         run: |
-          docker run -d --name api homelab-api:ci
+          docker network create smoke
+          docker run -d --name db --network smoke \
+            -e POSTGRES_DB=homelab -e POSTGRES_USER=homelab -e POSTGRES_PASSWORD=ci-only \
+            --health-cmd "pg_isready -U homelab -d homelab" --health-interval 2s \
+            postgres:18.6-alpine3.24
+          for _ in $(seq 1 30); do
+            [ "$(docker inspect db --format '{{.State.Health.Status}}')" = healthy ] && break
+            sleep 1
+          done
+          docker run -d --name api --network smoke \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/homelab \
+            -e SPRING_DATASOURCE_USERNAME=homelab -e SPRING_DATASOURCE_PASSWORD=ci-only \
+            homelab-api:ci
           for _ in $(seq 1 60); do
             status=$(docker inspect api --format '{{.State.Health.Status}}')
             [ "$status" = healthy ] && break
@@ -74,6 +88,8 @@ jobs:
           docker logs api | tail -5
           [ "$status" = healthy ] || { echo "::error::container not healthy ($status)"; exit 1; }
           docker exec api wget -qO- http://localhost:8080/actuator/health
+          echo
+          docker exec db psql -U homelab -d homelab -tAc "select version, success from flyway_schema_history"
 
       # ---- Publish (main only, after the smoke test passed) ----
       - name: Image tags

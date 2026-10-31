@@ -1,6 +1,7 @@
 # homelab-api
 
-Spring Boot 4.1 / Java 21 skeleton. Only `/actuator/health` (plus `/liveness` and `/readiness`) is exposed.
+Spring Boot 4.1 / Java 21 on Postgres. Only `/actuator/health` (plus `/liveness` and `/readiness`) is exposed;
+health includes the database connection.
 
 ## Build and run
 
@@ -9,14 +10,30 @@ No local JDK or Maven needed: everything builds inside Docker (tests run during 
 ```bash
 cd apps/api
 docker build -t homelab-api:dev .
-docker run --rm -p 127.0.0.1:8080:8080 homelab-api:dev   # local try-out only
-curl http://localhost:8080/actuator/health                # {"groups":["liveness","readiness"],"status":"UP"}
+# Run it with the rest of the stack (it needs Postgres):
+cd ../.. && docker compose up -d --build api
+docker compose exec api wget -qO- http://localhost:8080/actuator/health   # {"groups":["liveness","readiness"],"status":"UP"}
 ```
 
 Other architecture (e.g. amd64 image for the CachyOS PC, from the Mac):
 
 ```bash
 docker buildx build --platform linux/amd64 --load -t homelab-api:amd64 .
+```
+
+## Database
+
+- Connection from the environment only: `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` (set in
+  `compose.yaml` from `.env`). There is no default, so the app fails at startup without a database.
+- **Flyway owns the schema.** Migrations live in `src/main/resources/db/migration` and run on every
+  start (no-op when up to date). Add a change as a new file `V<n>__<what>.sql`; never edit an applied one.
+- Hibernate runs with `ddl-auto: validate`: if an entity doesn't match the migrated schema, startup fails.
+- First entity: `Note` (`id`, `body`, `created_at`) in table `note` (`V1__create_note.sql`).
+- Tests run inside `docker build` without Postgres, against H2 in PostgreSQL mode (same migrations).
+  The real Postgres check happens in CI's smoke test and when the stack starts.
+
+```bash
+docker compose exec postgres psql -U homelab -d homelab -c 'select * from flyway_schema_history'
 ```
 
 ## Image
@@ -34,7 +51,8 @@ docker buildx build --platform linux/amd64 --load -t homelab-api:amd64 .
 `main` that touches `apps/api/`:
 
 1. Builds `linux/amd64` + `linux/arm64` with buildx (tests run in the build).
-2. Starts the amd64 image and waits for `/actuator/health` (smoke test).
+2. Starts the amd64 image against a throwaway Postgres, waits for `/actuator/health` and checks
+   that Flyway applied the migrations (smoke test).
 3. **Only on `main`**, after the smoke test: pushes to `ghcr.io/josue270193/homelab-api` with tags
    `latest` and `sha-<short commit sha>`. Pull requests never push.
 
@@ -50,4 +68,4 @@ If the package is private, log in first with a classic token that has `read:pack
 
 ## Not yet
 
-- Postgres + Flyway: #32. Exposed through Traefik: #33.
+- Exposed through Traefik: #33.

@@ -101,7 +101,7 @@ source instead of running the CI-tested image.
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
-| `api`                 | `proxy`    | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). No route yet (#33), no DB yet (#32). |
+| `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. No route yet (#33). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
