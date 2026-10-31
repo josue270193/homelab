@@ -58,6 +58,37 @@ services:
       traefik.http.services.whoami.loadbalancer.healthcheck.interval: 10s
       traefik.http.services.whoami.loadbalancer.healthcheck.timeout: 3s
 
+  # Web UI to manage the stacks in services/ (one folder per stack).
+  # EXCEPTION to the socket-proxy rule: managing containers needs full Docker write access, which is
+  # root-equivalent with or without a proxy. Only this service mounts the raw socket.
+  # Not exposed beyond loopback until Cloudflare Access protects it (#16).
+  dockge:
+    image: louislam/dockge:1.5.0
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      DOCKGE_STACKS_DIR: ${STACKS_DIR:?set STACKS_DIR in .env (absolute path to services/)}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/dockge:/app/data
+      # Same absolute path inside and out: Dockge runs `docker compose` against the host daemon,
+      # so relative mounts in each stack must resolve to the same host path.
+      - ${STACKS_DIR:?set STACKS_DIR in .env (absolute path to services/)}:${STACKS_DIR:?set STACKS_DIR in .env (absolute path to services/)}
+    healthcheck:
+      test: ["CMD-SHELL", "extra/healthcheck"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+    networks:
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dockge.rule: Host(`dockge.${DOMAIN:-localhost}`)
+      traefik.http.routers.dockge.entrypoints: web
+      traefik.http.services.dockge.loadbalancer.server.port: "5001"
+
   # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
   # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
   docker-socket-proxy:
