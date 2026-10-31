@@ -48,7 +48,11 @@ Then:
 git clone git@github.com:josue270193/homelab.git
 cd homelab
 cp .env.example .env   # fill in real values; .env is git-ignored
+# set a real POSTGRES_PASSWORD, e.g.:
+sed -i '' "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 24)/" .env
 ```
+
+`.env` is required: without `POSTGRES_PASSWORD`, `docker compose` refuses to run.
 
 The Compose stack lives in `compose.yaml` (services are added through epic E1, see ROADMAP.md):
 
@@ -74,11 +78,20 @@ docker compose up -d
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
+| `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Nothing besides `docker-socket-proxy` mounts `/var/run/docker.sock`. If a new service needs
 another Docker API section, enable only that variable on the proxy (see
 [tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy#grant-or-revoke-access-to-certain-api-sections)).
+
+### Postgres
+
+- Reachable only as `postgres:5432` from containers on `internal`; no host or LAN port.
+- Data in the named volume `homelab_postgres-data` (mounted at `/var/lib/postgresql`, as Postgres 18+ expects).
+- `POSTGRES_*` from `.env` are applied **only when the volume is first created**. Changing the
+  password later in `.env` does nothing; change it inside the DB (`ALTER USER ...`) instead.
+- Shell into it: `docker compose exec postgres psql -U homelab -d homelab`.
 
 Notes:
 - Traefik ignores a container until its healthcheck passes; a labeled service with a healthcheck
