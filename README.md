@@ -81,6 +81,7 @@ docker compose up -d
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
+| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`, forwards only `tcp/5432` to Postgres. See below. |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Only `docker-socket-proxy` (read-only) and `dockge` (read-write, see below) mount
@@ -95,6 +96,34 @@ variable on the proxy (see
 - `POSTGRES_*` from `.env` are applied **only when the volume is first created**. Changing the
   password later in `.env` does nothing; change it inside the DB (`ALTER USER ...`) instead.
 - Shell into it: `docker compose exec postgres psql -U homelab -d homelab`.
+
+### Private DB access (Tailscale)
+
+The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only `tcp/5432` to
+`postgres:5432` ([`tailscale/serve.json`](tailscale/serve.json), marked "tailnet only").
+Postgres still has no host, LAN or public port; only devices logged into your tailnet can connect.
+
+Setup (once per machine):
+
+1. Tailscale account (free Personal plan), Tailscale installed and logged in on the Mac.
+2. Admin console → Settings → Keys → generate an auth key (not reusable, not ephemeral).
+   Put it in `.env` as `TS_AUTHKEY=...` and keep `.env` private (`chmod 600 .env`).
+   Without a key, the container waits and prints a login URL in `docker compose logs tailscale`.
+3. `docker compose up -d tailscale`. State persists in `data/tailscale/` (git-ignored), so the key is
+   only used on first login; you can revoke it afterwards.
+
+Connect from the Mac with any client (DBeaver, pgAdmin, `psql`):
+`host=homelab-db.<tailnet>.ts.net port=5432 user=homelab dbname=homelab` (password from `.env`).
+
+Notes:
+- Userspace mode forwards tailnet traffic to the container's `127.0.0.1`, so nothing else may listen
+  there (that's why its healthcheck uses the CLI socket, not `TS_LOCAL_ADDR_PORT`).
+- Tailscale's own `peerapi` port (random, e.g. 57019) is also reachable by your tailnet devices, as
+  on every Tailscale node.
+- Device keys expire (180 days by default). To avoid it, tag the device: define `tag:homelab` in the
+  ACL and set `TS_EXTRA_ARGS=--advertise-tags=tag:homelab`. Optionally restrict the ACL to
+  `homelab-db:5432`.
+- Funnel (public exposure) is **not** enabled. Never enable it for the DB.
 
 ### Postgres backups
 
@@ -143,6 +172,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `postgres` | `pg_isready` |
 | `postgres-backup` | last successful dump < 26 h old |
 | `dockge` | image's `extra/healthcheck` |
+| `tailscale` | `tailscale status` via local socket: `BackendState` is `Running` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
