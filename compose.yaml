@@ -98,6 +98,36 @@ services:
     networks:
       - internal
 
+  # Daily pg_dump of the homelab DB into ./backups/postgres (git-ignored), 7-day retention.
+  # Same image as postgres so pg_dump always matches the server version.
+  postgres-backup:
+    image: postgres:18.6-alpine3.24
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/pg-backup.sh"]
+    environment:
+      TZ: ${TZ:-UTC}
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-homelab}
+      PGUSER: ${POSTGRES_USER:-homelab}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      BACKUP_TIME: ${BACKUP_TIME:-03:00}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - ./scripts/pg-backup.sh:/pg-backup.sh:ro
+      - ${BACKUP_DIR:-./backups/postgres}:/backups
+    healthcheck:
+      # Unhealthy only if the last successful dump is older than 26h (healthy before the first run).
+      test: ["CMD-SHELL", "test -z \"$$(find /backups -maxdepth 1 -name .last_success -mmin +1560)\""]
+      interval: 5m
+      timeout: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
 volumes:
   postgres-data:
 

@@ -79,6 +79,7 @@ docker compose up -d
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
+| `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Nothing besides `docker-socket-proxy` mounts `/var/run/docker.sock`. If a new service needs
@@ -92,6 +93,36 @@ another Docker API section, enable only that variable on the proxy (see
 - `POSTGRES_*` from `.env` are applied **only when the volume is first created**. Changing the
   password later in `.env` does nothing; change it inside the DB (`ALTER USER ...`) instead.
 - Shell into it: `docker compose exec postgres psql -U homelab -d homelab`.
+
+### Postgres backups
+
+`postgres-backup` runs [`scripts/pg-backup.sh`](scripts/pg-backup.sh) in the same Postgres image:
+one `pg_dump -Fc` per day at `BACKUP_TIME` (default 03:00, `TZ` from `.env`) into
+`./backups/postgres/` (git-ignored), deleting dumps older than `BACKUP_KEEP_DAYS` (default 7).
+A failed dump leaves no file and is logged as `backup FAILED`; the container turns **unhealthy**
+when the last successful dump is older than 26 h.
+
+```bash
+docker compose logs postgres-backup                          # schedule + results
+docker compose exec postgres-backup sh /pg-backup.sh --once  # backup now
+ls -lh backups/postgres/
+```
+
+**Restore** (tested: 1000/1000 rows recovered into a fresh DB). Restore into a new DB first, check it,
+then swap. Never restore over the live DB blindly:
+
+```bash
+DUMP=homelab-YYYYmmdd-HHMMSS.dump                       # pick one from backups/postgres/
+docker compose exec postgres createdb -U homelab homelab_restore
+docker compose exec postgres-backup pg_restore -d homelab_restore --no-owner /backups/$DUMP
+docker compose exec postgres psql -U homelab -d homelab_restore -c '\dt'   # check
+```
+
+To replace the live DB with it: stop the apps using it, then in `psql -U homelab -d postgres`:
+`DROP DATABASE homelab; ALTER DATABASE homelab_restore RENAME TO homelab;`
+
+Backups live on the same disk as the DB, so they protect against mistakes, not disk loss
+(off-site copies are in "Later" in ROADMAP.md).
 
 Notes:
 - Traefik ignores a container until its healthcheck passes; a labeled service with a healthcheck
