@@ -62,6 +62,28 @@ docker compose config   # validate
 docker compose up -d
 ```
 
+### Dev (Mac) vs production (PC)
+
+| | Mac (dev) | CachyOS PC (prod) |
+|---|---|---|
+| Files loaded | `compose.yaml` + `compose.override.yaml` (automatic) | `compose.yaml` only |
+| How | default | `COMPOSE_FILE=compose.yaml` in that machine's `.env` |
+| `api` image | built from `apps/api` → `homelab-api:dev` | pulled from `ghcr.io/josue270193/homelab-api:${API_TAG:-latest}` |
+
+```bash
+# Mac: rebuild and restart the API after a code change
+docker compose up -d --build api
+
+# PC: update to what CI published (or set API_TAG=sha-<short sha> in .env to pin a build)
+docker compose pull api && docker compose up -d api
+
+# Check which mode you're in
+docker compose config --format json | grep -q '"build"' && echo dev || echo prod
+```
+
+`compose.override.yaml` is committed, so forgetting `COMPOSE_FILE` on the PC means it builds from
+source instead of running the CI-tested image.
+
 ## Networks
 
 | Network    | Purpose                                              | Internet egress |
@@ -79,6 +101,7 @@ docker compose up -d
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
+| `api`                 | `proxy`    | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). No route yet (#33), no DB yet (#32). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
@@ -174,6 +197,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `postgres-backup` | last successful dump < 26 h old |
 | `dockge` | image's `extra/healthcheck` |
 | `tailscale` | `tailscale status` via local socket: `BackendState` is `Running` |
+| `api` | image `HEALTHCHECK` on `/actuator/health` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a

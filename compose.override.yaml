@@ -1,0 +1,12 @@
+# Local development overrides (Mac). Docker Compose loads this file automatically when it sits
+# next to compose.yaml, so on the Mac `docker compose up -d` builds the API from source.
+#
+# Production (CachyOS PC) must NOT load it: set COMPOSE_FILE=compose.yaml in that machine's .env,
+# so the API image is pulled from GHCR instead.
+
+services:
+  api:
+    build:
+      context: ./apps/api
+    image: homelab-api:dev   # local tag; never overwrites the GHCR image
+    pull_policy: build

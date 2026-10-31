@@ -89,6 +89,19 @@ services:
       traefik.http.routers.dockge.entrypoints: web
       traefik.http.services.dockge.loadbalancer.server.port: "5001"
 
+  # Spring Boot API (apps/api). Production pulls the image CI publishes to GHCR;
+  # on the Mac, compose.override.yaml builds it locally instead.
+  # No Traefik route yet (#33), no database yet (#32). Healthcheck comes from the image.
+  api:
+    image: ghcr.io/josue270193/homelab-api:${API_TAG:-latest}   # API_TAG=sha-<short sha> pins a build
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+
   # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
   # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
   docker-socket-proxy:
