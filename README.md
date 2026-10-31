@@ -102,6 +102,7 @@ source instead of running the CI-tested image.
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. No route yet (#33). |
+| `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
@@ -198,12 +199,44 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `dockge` | image's `extra/healthcheck` |
 | `tailscale` | `tailscale status` via local socket: `BackendState` is `Running` |
 | `api` | image `HEALTHCHECK` on `/actuator/health` |
+| `uptime-kuma` | image's `extra/healthcheck` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
 container until it is healthy). Images without a shell use Traefik's
 `loadbalancer.healthcheck.path` label instead. Both options are in `services/_template`.
 `docker compose ps` shows the state of each.
+
+## Monitoring
+
+Uptime Kuma runs at <http://status.localhost> (loopback only; Cloudflare Access in #16). Its monitors
+and notification settings live in its own database (volume `homelab_uptime-kuma-data`), not in git,
+so the list below is the source of truth to recreate them.
+
+First run:
+
+1. Open <http://status.localhost>, choose **SQLite** (the `slim` image has no embedded MariaDB).
+2. Create the admin account (yours; use a password manager).
+
+Monitors (Add New Monitor; interval 60 s, retries 2):
+
+| Name | Type | Target | Covers |
+|---|---|---|---|
+| API | HTTP(s) - Keyword | `http://api:8080/actuator/health`, keyword `"UP"` | API **and** Postgres (health includes the DB) |
+| Traefik → whoami | HTTP(s) | `http://traefik:80/health` with header `{"Host": "whoami.localhost"}` | Traefik routing end to end |
+| Dockge | HTTP(s) | `http://dockge:5001/` | Dockge UI |
+| Postgres backups | Push (later) | — | daily backup heartbeat; not wired yet (needs the push URL in `pg-backup.sh`) |
+
+Kuma is only on `proxy`: it can't reach `postgres` or `docker-socket-proxy` directly, on purpose.
+Public monitors (`https://<sub>.<domain>`) are added once the domain and tunnel exist (#13, #33).
+
+Notifications (Settings → Notifications → Setup Notification → Telegram):
+
+1. In Telegram, talk to **@BotFather** → `/newbot` → copy the bot token.
+2. Send any message to your new bot, then in Kuma paste the token and click **Auto Get** for the Chat ID.
+3. **Test**, then enable **Default enabled / Apply on all existing monitors**.
+
+The bot token is stored only in Kuma's database, never in `.env` or git.
 
 ## Logs
 

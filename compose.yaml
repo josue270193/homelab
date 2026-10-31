@@ -122,6 +122,36 @@ services:
       - proxy      # Traefik will route here (#33)
       - internal   # reach postgres
 
+  # Uptime monitoring + notifications at status.<domain>. Monitors live in its own DB (UI-managed),
+  # listed in README so they can be recreated. Rootless image; no Docker socket.
+  # Loopback only until Cloudflare Access protects it (#16).
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.5.8-slim-rootless
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - uptime-kuma-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "extra/healthcheck"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+    security_opt:
+      - no-new-privileges:true
+    # Only `proxy`: on `internal` it could also reach docker-socket-proxy. Postgres is covered by the
+    # api health check, which includes the DB connection.
+    networks:
+      - proxy      # Traefik route, HTTP monitors, egress for notifications (Telegram/email)
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.status.rule: Host(`status.${DOMAIN:-localhost}`)
+      traefik.http.routers.status.entrypoints: web
+      traefik.http.services.status.loadbalancer.server.port: "3001"
+
   # Read-only gate to the Docker API. Traefik uses this instead of the raw socket.
   # Only what Traefik's Docker provider needs is enabled; every POST/write is denied.
   docker-socket-proxy:
@@ -251,6 +281,7 @@ services:
 
 volumes:
   postgres-data:
+  uptime-kuma-data:
 
 networks:
   # External-facing: Traefik and every service it routes to.
