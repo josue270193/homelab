@@ -261,3 +261,21 @@ Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 - Service data (bind mounts under `data/`, `volumes/`, `backups/`) is git-ignored.
 - Databases are never published; they live only on the `internal` network.
 - Services are exposed only through Traefik labels.
+- `main` only changes through PRs (squash merge), enforced by the `Basic` ruleset.
+
+## CI checks
+
+| Workflow | Check | Runs on | What it does |
+|---|---|---|---|
+| `compose-validate` | `compose` | every PR + push to `main` | `docker compose config` for dev, prod and every `services/*` stack |
+| `api-image` | `build` | PRs/pushes touching `apps/api/**` | builds amd64 + arm64, smoke test with Postgres, publishes to GHCR on `main` |
+
+Run the compose check locally before opening a PR (it uses `.env.example` with dummy secrets, never
+your `.env`):
+
+```bash
+./scripts/validate-compose.sh
+```
+
+`compose` runs on every PR, so it can be a **required** check in the ruleset. `build` must not be
+required: PRs that don't touch `apps/api/` never get it and would wait forever.
