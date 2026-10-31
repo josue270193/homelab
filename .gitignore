@@ -24,3 +24,4 @@ logs/
 # Local tooling
 .codegraph/
 .claude/settings.local.json
+apps/*/target/

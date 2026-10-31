@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: homelab-api
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is public; add more deliberately (they can leak config/env).
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true   # /actuator/health/liveness and /readiness
+      show-details: never
