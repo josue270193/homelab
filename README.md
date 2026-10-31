@@ -205,6 +205,36 @@ container until it is healthy). Images without a shell use Traefik's
 `loadbalancer.healthcheck.path` label instead. Both options are in `services/_template`.
 `docker compose ps` shows the state of each.
 
+## Logs
+
+Every container logs to Docker's `json-file` driver, **capped at 3 × 10 MB** per container
+(`x-logging` anchor at the top of `compose.yaml`; new services must use `logging: *default-logging`).
+Older lines are discarded automatically, so a 24/7 host can't fill its disk with logs.
+
+```bash
+docker compose logs -f api                      # follow one service
+docker compose logs --tail=100 traefik          # last 100 lines
+docker compose logs --since 1h -t postgres      # last hour, with timestamps
+docker compose logs -f traefik api              # several services, interleaved
+docker compose logs --no-color api | grep -i error
+docker compose ps                               # what is running / healthy
+```
+
+From another stack in `services/<name>/`: `docker compose logs -f` inside its folder, or open it in
+Dockge, which shows each stack's logs in the browser.
+
+Where to look first:
+
+| Symptom | Service | Look for |
+|---|---|---|
+| URL returns 404 / 502 / 503 | `traefik` | router errors; then the target service's health |
+| API won't start | `api` | `Flyway`, `HikariPool`, `Schema-validation` |
+| No DB over tailnet | `tailscale` | login / `serve proxy` lines |
+| Missing backup | `postgres-backup` | `backup ok` / `backup FAILED` |
+
+No Dozzle: a log UI would need the Docker socket, a second exception after Dockge. Logs stay on
+the host and rotate; nothing is shipped elsewhere.
+
 ## Expose a new image
 
 Each extra service is its own stack under `services/<name>/`, joined to the shared `proxy` network.

@@ -13,6 +13,11 @@ services:
   app:
     image: traefik/whoami:v1.12.0             # CHANGE: pinned image, amd64 + arm64, never :latest
     restart: unless-stopped
+    logging:                                  # rotate logs: 3 x 10 MB max
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
     # environment:                            # secrets come from ../../.env, never hard-coded
