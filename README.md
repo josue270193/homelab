@@ -77,13 +77,15 @@ docker compose up -d
 | Service               | Network    | Notes |
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
+| `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
-Nothing besides `docker-socket-proxy` mounts `/var/run/docker.sock`. If a new service needs
-another Docker API section, enable only that variable on the proxy (see
+Only `docker-socket-proxy` (read-only) and `dockge` (read-write, see below) mount
+`/var/run/docker.sock`. If a new service needs another Docker API section, enable only that
+variable on the proxy (see
 [tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy#grant-or-revoke-access-to-certain-api-sections)).
 
 ### Postgres
@@ -140,6 +142,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `docker-socket-proxy` | `wget /_ping` (checks proxy **and** Docker daemon) |
 | `postgres` | `pg_isready` |
 | `postgres-backup` | last successful dump < 26 h old |
+| `dockge` | image's `extra/healthcheck` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
@@ -177,6 +180,25 @@ curl -I http://myapp.localhost
 - Never add `ports:`; Traefik is the only way in.
 - Needs a database? Also join `internal` (uncomment it in both places).
 - `network proxy declared as external, but could not be found` → start the main stack first.
+
+### From the UI (Dockge)
+
+Open <http://dockge.localhost>. The first visit asks you to create the admin account.
+Dockge lists every folder in `services/` as a stack (`_template` included) and can create, edit,
+deploy and stop them. Stacks created in the UI are written to `services/<name>/compose.yaml`, so
+they show up in `git status`: commit them through a PR like anything else.
+
+- Dockge does not load the root `.env` (no `--env-file ../../.env`). Put the variables a stack
+  needs in its own `services/<name>/.env` (git-ignored), or rely on defaults such as `${DOMAIN:-localhost}`.
+- The main stack (repo root `compose.yaml`: Traefik, Postgres, Dockge itself) is **not** in
+  `services/`, so it can't be stopped from the UI by mistake. Manage it from the terminal.
+
+**Security exception.** Dockge mounts the Docker socket read-write: it has to create, stop and
+remove containers, which is root-equivalent on the host whether or not a proxy sits in between.
+Mitigations: only Dockge has it (Traefik keeps the read-only proxy), its own login, and it's reachable
+only on `127.0.0.1` until Cloudflare Access protects it (#16). `STACKS_DIR` in `.env` must be the
+absolute path to `services/`, because Dockge mounts it at the same path inside the container.
+Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 
 ## Repository rules
 
