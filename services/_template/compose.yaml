@@ -17,6 +17,15 @@ services:
       - no-new-privileges:true
     # environment:                            # secrets come from ../../.env, never hard-coded
     #   API_KEY: ${TEMPLATE_API_KEY}
+    # CHANGE: health endpoint. If the image has a shell + wget/curl, use a Docker healthcheck:
+    # healthcheck:
+    #   test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://localhost:80/health"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 20s
+    #   start_interval: 2s
+    # Note: Traefik won't route to it until the Docker healthcheck passes.
     networks:
       - proxy
       # - internal                            # only if it must talk to a database
@@ -26,6 +35,9 @@ services:
       traefik.http.routers.template.rule: Host(`template.${DOMAIN:-localhost}`)   # CHANGE: router name + host
       traefik.http.routers.template.entrypoints: web
       traefik.http.services.template.loadbalancer.server.port: "80"              # CHANGE: service name + container port
+      # Images without a shell (FROM scratch/distroless, like whoami): let Traefik probe instead.
+      traefik.http.services.template.loadbalancer.healthcheck.path: /health      # CHANGE: health path
+      traefik.http.services.template.loadbalancer.healthcheck.interval: 10s
     # No `ports:` — the service is reachable only through Traefik.
 
 networks:

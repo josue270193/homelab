@@ -129,6 +129,24 @@ Notes:
   returns 404 while `health: starting`.
 - Port 80 on the Mac must be free; stop any other local stack serving `http://localhost` first.
 
+### Restart and health policy
+
+Every service has `restart: unless-stopped` (comes back after a crash or reboot, but not after
+`docker compose stop` / `docker kill`) and a health check:
+
+| Service | Health check |
+|---|---|
+| `traefik` | `traefik healthcheck --ping` |
+| `docker-socket-proxy` | `wget /_ping` (checks proxy **and** Docker daemon) |
+| `postgres` | `pg_isready` |
+| `postgres-backup` | last successful dump < 26 h old |
+| `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
+
+New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
+container until it is healthy). Images without a shell use Traefik's
+`loadbalancer.healthcheck.path` label instead. Both options are in `services/_template`.
+`docker compose ps` shows the state of each.
+
 ## Expose a new image
 
 Each extra service is its own stack under `services/<name>/`, joined to the shared `proxy` network.
