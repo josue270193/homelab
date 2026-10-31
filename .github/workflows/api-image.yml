@@ -1,5 +1,6 @@
-# Builds the API image for linux/amd64 and linux/arm64 (Mac dev + CachyOS PC).
-# Build only: pushing to GHCR is #22.
+# Builds the API image for linux/amd64 and linux/arm64 (Mac dev + CachyOS PC), smoke-tests it,
+# and on pushes to main publishes it to ghcr.io/<owner>/homelab-api as `latest` + `sha-<short sha>`.
+# Pull requests build and test only; they never push.
 name: api-image
 
 on:
@@ -19,12 +20,19 @@ permissions:
 
 concurrency:
   group: api-image-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel stale PR runs, but never a publish on main halfway through.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/homelab-api
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write   # push to GHCR with GITHUB_TOKEN (only used on main)
     steps:
       # Actions pinned to commit SHAs (tags are mutable); version in the comment.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,3 +74,34 @@ jobs:
           docker logs api | tail -5
           [ "$status" = healthy ] || { echo "::error::container not healthy ($status)"; exit 1; }
           docker exec api wget -qO- http://localhost:8080/actuator/health
+
+      # ---- Publish (main only, after the smoke test passed) ----
+      - name: Image tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same inputs as the first build, so every layer comes from cache: this only pushes.
+      - name: Push linux/amd64 + linux/arm64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api

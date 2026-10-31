@@ -28,13 +28,26 @@ docker buildx build --platform linux/amd64 --load -t homelab-api:amd64 .
   are separate image layers: a code change only rebuilds and pushes the small `application` layer.
 - Runs as non-root user `app`; `HEALTHCHECK` on `/actuator/health`; heap capped at 75% of the container limit.
 
-## CI
+## CI and images
 
 [`.github/workflows/api-image.yml`](../../.github/workflows/api-image.yml) runs on every PR and push to
-`main` that touches `apps/api/`: builds `linux/amd64` + `linux/arm64` with buildx (tests run in the
-build), then starts the amd64 image and waits for `/actuator/health`. Nothing is pushed yet.
-Actions are pinned to commit SHAs; layer cache lives in the GitHub Actions cache.
+`main` that touches `apps/api/`:
+
+1. Builds `linux/amd64` + `linux/arm64` with buildx (tests run in the build).
+2. Starts the amd64 image and waits for `/actuator/health` (smoke test).
+3. **Only on `main`**, after the smoke test: pushes to `ghcr.io/josue270193/homelab-api` with tags
+   `latest` and `sha-<short commit sha>`. Pull requests never push.
+
+Uses the workflow's `GITHUB_TOKEN` (`packages: write`), no personal token. Actions are pinned to commit
+SHAs; layer cache lives in the GitHub Actions cache.
+
+```bash
+docker pull ghcr.io/josue270193/homelab-api:latest        # or :sha-<short sha> to pin a build
+```
+
+If the package is private, log in first with a classic token that has `read:packages`
+(`docker login ghcr.io -u josue270193`, paste the token at the prompt so it stays out of shell history).
 
 ## Not yet
 
-- Postgres + Flyway: #32. Exposed through Traefik: #33. Pushed to GHCR: #22.
+- Postgres + Flyway: #32. Exposed through Traefik: #33.
