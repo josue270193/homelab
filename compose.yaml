@@ -20,6 +20,8 @@ services:
       # Internet traffic: cloudflared sends *.<domain> here. Not published on the host.
       # Only routers with entrypoints=public are reachable from the internet.
       - --entrypoints.public.address=:8000
+      # Admin over Tailscale: tailnet :8080 → traefik:8081 (see tailscale/serve.json). Not published.
+      - --entrypoints.admin.address=:8081
       - --providers.docker=true
       - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
@@ -53,6 +55,10 @@ services:
       traefik.http.routers.dashboard.rule: Host(`traefik.localhost`)
       traefik.http.routers.dashboard.entrypoints: web
       traefik.http.routers.dashboard.service: api@internal
+      # Same dashboard over Tailscale: http://<tailscale-node>:8080/dashboard/ (tailnet devices only)
+      traefik.http.routers.dashboard-tailnet.rule: PathPrefix(`/`)
+      traefik.http.routers.dashboard-tailnet.entrypoints: admin
+      traefik.http.routers.dashboard-tailnet.service: api@internal
 
   # Test service: echoes request info. Route comes only from these labels.
   whoami:
@@ -283,8 +289,9 @@ services:
     networks:
       - internal
 
-  # Private DB access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY tcp/5432
-  # to postgres (tailscale/serve.json). Nothing is published on the host or the internet.
+  # Private access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY the ports in
+  # tailscale/serve.json: 5432 postgres, 5001 Dockge, 3001 Uptime Kuma, 8080 Traefik dashboard.
+  # Nothing is published on the host or the internet.
   # Userspace networking: no NET_ADMIN / /dev/net/tun needed.
   tailscale:
     image: tailscale/tailscale:v1.104.4

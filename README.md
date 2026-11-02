@@ -118,7 +118,7 @@ source instead of running the CI-tested image.
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
-| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`, forwards only `tcp/5432` to Postgres. See below. |
+| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres and the admin UIs (see Private access). |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Only `docker-socket-proxy` (read-only) and `dockge` (read-write, see below) mount
@@ -134,11 +134,21 @@ variable on the proxy (see
   password later in `.env` does nothing; change it inside the DB (`ALTER USER ...`) instead.
 - Shell into it: `docker compose exec postgres psql -U homelab -d homelab`.
 
-### Private DB access (Tailscale)
+### Private access: DB and admin UIs (Tailscale)
 
-The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only `tcp/5432` to
-`postgres:5432` ([`tailscale/serve.json`](tailscale/serve.json), marked "tailnet only").
-Postgres still has no host, LAN or public port; only devices logged into your tailnet can connect.
+The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only these ports
+([`tailscale/serve.json`](tailscale/serve.json), all "tailnet only"):
+
+| URL / address (from any device on your tailnet) | Goes to | Login |
+|---|---|---|
+| `homelab-db.<tailnet>.ts.net:5432` | Postgres | DB password |
+| `http://homelab-db.<tailnet>.ts.net:5001` | Dockge | Dockge account |
+| `http://homelab-db.<tailnet>.ts.net:3001` | Uptime Kuma | Kuma account |
+| `http://homelab-db.<tailnet>.ts.net:8080/dashboard/` | Traefik dashboard (entrypoint `admin`) | none: tailnet membership is the gate |
+
+None of these are published on the host, the LAN or the internet (the tunnel only reaches Traefik's
+`public` entrypoint). Traffic is encrypted by WireGuard, so plain `http://` is fine here. This replaces
+Cloudflare Access (#16), which needs a Zero Trust signup with a card.
 
 Setup (once per machine):
 
@@ -223,7 +233,7 @@ container until it is healthy). Images without a shell use Traefik's
 
 ## Monitoring
 
-Uptime Kuma runs at <http://status.localhost> (loopback only; Cloudflare Access in #16). Its monitors
+Uptime Kuma runs at <http://status.localhost> locally and over Tailscale (see Private access). Its monitors
 and notification settings live in its own database (volume `homelab_uptime-kuma-data`), not in git,
 so the list below is the source of truth to recreate them.
 
