@@ -20,6 +20,9 @@ services:
       # Internet traffic: cloudflared sends *.<domain> here. Not published on the host.
       # Only routers with entrypoints=public are reachable from the internet.
       - --entrypoints.public.address=:8000
+      # Keep X-Forwarded-Proto=https / X-Forwarded-For from cloudflared. Only containers on `proxy` can
+      # reach :8000 (it isn't published), so trusting forwarded headers here is limited to our own stack.
+      - --entrypoints.public.forwardedHeaders.insecure=true
       # Admin over Tailscale: tailnet :8080 → traefik:8081 (see tailscale/serve.json). Not published.
       - --entrypoints.admin.address=:8081
       - --providers.docker=true
@@ -120,7 +123,8 @@ services:
 
   # Spring Boot API (apps/api). Production pulls the image CI publishes to GHCR;
   # on the Mac, compose.override.yaml builds it locally instead.
-  # No Traefik route yet (#33). Healthcheck comes from the image and includes the DB connection.
+  # Public at https://api.<domain> (entrypoint `public`), local at http://api.localhost.
+  # Healthcheck comes from the image and includes the DB connection.
   # Flyway applies apps/api/src/main/resources/db/migration on every start (no-op if up to date).
   api:
     image: ghcr.io/josue270193/homelab-api:${API_TAG:-latest}   # API_TAG=sha-<short sha> pins a build
@@ -137,8 +141,17 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - proxy      # Traefik will route here (#33)
+      - proxy      # Traefik routes here
       - internal   # reach postgres
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: Host(`api.localhost`)
+      traefik.http.routers.api.entrypoints: web
+      traefik.http.routers.api.service: api
+      traefik.http.routers.api-public.rule: Host(`api.${DOMAIN:-localhost}`)
+      traefik.http.routers.api-public.entrypoints: public
+      traefik.http.routers.api-public.service: api
+      traefik.http.services.api.loadbalancer.server.port: "8080"
 
   # Uptime monitoring + notifications at status.<domain>. Monitors live in its own DB (UI-managed),
   # listed in README so they can be recreated. Rootless image; no Docker socket.
