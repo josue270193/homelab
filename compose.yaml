@@ -16,7 +16,10 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command:
-      - --entrypoints.web.address=:80
+      - --entrypoints.web.address=:80        # local only (127.0.0.1 on the host)
+      # Internet traffic: cloudflared sends *.<domain> here. Not published on the host.
+      # Only routers with entrypoints=public are reachable from the internet.
+      - --entrypoints.public.address=:8000
       - --providers.docker=true
       - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
@@ -46,7 +49,8 @@ services:
       - internal
     labels:
       traefik.enable: "true"
-      traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN:-localhost}`)
+      # Admin UI: local entrypoint only, never public (no auth). Remote access via Tailscale.
+      traefik.http.routers.dashboard.rule: Host(`traefik.localhost`)
       traefik.http.routers.dashboard.entrypoints: web
       traefik.http.routers.dashboard.service: api@internal
 
@@ -61,8 +65,13 @@ services:
       - proxy
     labels:
       traefik.enable: "true"
-      traefik.http.routers.whoami.rule: Host(`whoami.${DOMAIN:-localhost}`)
+      traefik.http.routers.whoami.rule: Host(`whoami.localhost`)
       traefik.http.routers.whoami.entrypoints: web
+      traefik.http.routers.whoami.service: whoami
+      # Public: https://whoami.<domain> through the tunnel
+      traefik.http.routers.whoami-public.rule: Host(`whoami.${DOMAIN:-localhost}`)
+      traefik.http.routers.whoami-public.entrypoints: public
+      traefik.http.routers.whoami-public.service: whoami
       traefik.http.services.whoami.loadbalancer.server.port: "80"
       # Image is FROM scratch (no shell/wget), so no Docker healthcheck is possible.
       # Traefik probes it instead and stops routing to it if /health fails.
@@ -98,7 +107,8 @@ services:
       - proxy
     labels:
       traefik.enable: "true"
-      traefik.http.routers.dockge.rule: Host(`dockge.${DOMAIN:-localhost}`)
+      # Admin UI: local only, never public. Remote access via Tailscale.
+      traefik.http.routers.dockge.rule: Host(`dockge.localhost`)
       traefik.http.routers.dockge.entrypoints: web
       traefik.http.services.dockge.loadbalancer.server.port: "5001"
 
@@ -150,7 +160,8 @@ services:
       - proxy      # Traefik route, HTTP monitors, egress for notifications (Telegram/email)
     labels:
       traefik.enable: "true"
-      traefik.http.routers.status.rule: Host(`status.${DOMAIN:-localhost}`)
+      # Admin UI: local only, never public. Remote access via Tailscale.
+      traefik.http.routers.status.rule: Host(`status.localhost`)
       traefik.http.routers.status.entrypoints: web
       traefik.http.services.status.loadbalancer.server.port: "3001"
 

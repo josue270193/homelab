@@ -37,8 +37,14 @@ services:
     labels:
       traefik.enable: "true"
       # Router and service names must be unique across ALL stacks.
-      traefik.http.routers.template.rule: Host(`template.${DOMAIN:-localhost}`)   # CHANGE: router name + host
+      # Local: http://template.localhost[:TRAEFIK_HTTP_PORT]
+      traefik.http.routers.template.rule: Host(`template.localhost`)               # CHANGE: router name + host
       traefik.http.routers.template.entrypoints: web
+      traefik.http.routers.template.service: template
+      # Public (internet, through the tunnel): uncomment ONLY if this app should be public.
+      # traefik.http.routers.template-public.rule: Host(`template.${DOMAIN:-localhost}`)
+      # traefik.http.routers.template-public.entrypoints: public
+      # traefik.http.routers.template-public.service: template
       traefik.http.services.template.loadbalancer.server.port: "80"              # CHANGE: service name + container port
       # Images without a shell (FROM scratch/distroless, like whoami): let Traefik probe instead.
       traefik.http.services.template.loadbalancer.healthcheck.path: /health      # CHANGE: health path

@@ -64,6 +64,15 @@ docker compose config   # validate
 docker compose up -d
 ```
 
+### Public vs local
+
+| URL | Reachable from | Entry |
+|---|---|---|
+| `https://whoami.josuedev.dpdns.org` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
+| `http://<name>.localhost:${TRAEFIK_HTTP_PORT}` | this machine only | Traefik entrypoint `web` |
+
+Only routers on `public` are on the internet; admin UIs stay local (details in [docs/tunnel.md](docs/tunnel.md)).
+
 ### Dev (Mac) vs production (PC)
 
 | | Mac (dev) | CachyOS PC (prod) |
