@@ -62,6 +62,7 @@ Goal: public HTTPS subdomains reach Traefik without opening router ports.
   AC: domain active in Cloudflare dashboard.
 - **2.3 Create remotely-managed tunnel**
   AC: tunnel created; token stored in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`.
+  Done differently: locally-managed tunnel via CLI (Zero Trust signup needs a card); see docs/tunnel.md.
 - **2.4 Add `cloudflared` service to compose**
   AC: tunnel shows HEALTHY in Cloudflare; container restarts automatically.
 - **2.5 Wildcard route to Traefik**
