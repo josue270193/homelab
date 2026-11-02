@@ -45,6 +45,29 @@ docker run --rm -v "$PWD/cloudflared/config.yml:/etc/cloudflared/config.yml:ro" 
   cloudflare/cloudflared:2026.10.4 tunnel --config /etc/cloudflared/config.yml ingress validate
 ```
 
+## Public vs private (#14)
+
+```
+Internet ──HTTPS──> Cloudflare (*.josuedev.dpdns.org, wildcard cert)
+                      │ tunnel
+                      ▼
+               cloudflared ──> traefik:8000  (entrypoint `public`, not published on the host)
+                                  └─ only routers with entrypoints=public answer; everything else 404
+
+Mac browser ──> 127.0.0.1:${TRAEFIK_HTTP_PORT} ──> traefik:80 (entrypoint `web`): all local routers
+```
+
+- DNS: one proxied wildcard `CNAME *.josuedev.dpdns.org → <tunnel-id>.cfargotunnel.com`
+  (`cf tunnel route dns homelab '*.josuedev.dpdns.org'`). The apex has no record.
+- Ingress: `*.josuedev.dpdns.org → http://traefik:8000`, anything else `http_status:404`.
+- **To make a service public**, give it a second router on `public` with rule ``Host(`<sub>.${DOMAIN}`)``
+  (see `whoami-public` in `compose.yaml` and the commented block in `services/_template`).
+  No tunnel or DNS change is needed for new subdomains.
+- **Never** put admin UIs (Traefik dashboard, Dockge, Uptime Kuma) on `public`: they have no auth.
+- After editing `cloudflared/config.yml`: `docker compose restart cloudflared` (it reads the file only at start).
+- Mac and PC must not both run `cloudflared` with these credentials: Cloudflare would split public
+  traffic between them. Stop it on the Mac once the PC serves the tunnel (#25).
+
 ## Running (#13)
 
 The `cloudflared` service in `compose.yaml` runs the tunnel: outbound only, on `proxy`, config and

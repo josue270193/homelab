@@ -8,5 +8,9 @@ tunnel: b220f235-2216-46a0-b12b-b82a505e06f1
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
-  # Public routes are added in #14 (wildcard to Traefik). Until then nothing is exposed.
+  # Every subdomain goes to Traefik's `public` entrypoint (NOT :80). Only routers that declare
+  # entrypoints=public answer there; admin UIs live on `web` and return 404 from the internet.
+  - hostname: "*.josuedev.dpdns.org"
+    service: http://traefik:8000
+  # Apex and anything else
   - service: http_status:404

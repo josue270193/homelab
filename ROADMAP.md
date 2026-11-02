@@ -67,6 +67,7 @@ Goal: public HTTPS subdomains reach Traefik without opening router ports.
   AC: tunnel shows HEALTHY in Cloudflare; container restarts automatically.
 - **2.5 Wildcard route to Traefik**
   AC: public hostname `*.example.dev` → `http://traefik:80`; `whoami.example.dev` works over HTTPS.
+  Done as `*.<domain>` → `http://traefik:8000` (dedicated `public` entrypoint, so only opted-in routers are public).
   Note: free Cloudflare TLS covers one level only (`a.example.dev`, not `a.b.example.dev`).
 
 ## E3 – Dynamic service management (the "dashboard")
