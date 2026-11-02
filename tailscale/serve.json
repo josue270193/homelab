@@ -1,7 +1,8 @@
 {
   "TCP": {
-    "5432": {
-      "TCPForward": "postgres:5432"
-    }
+    "5432": { "TCPForward": "postgres:5432" },
+    "5001": { "TCPForward": "dockge:5001" },
+    "3001": { "TCPForward": "uptime-kuma:3001" },
+    "8080": { "TCPForward": "traefik:8081" }
   }
 }

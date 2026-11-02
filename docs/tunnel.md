@@ -14,7 +14,8 @@ Zero Trust asks for a payment method even on the Free plan, so the tunnel was cr
 instead. The tunnel itself is free either way. Bonus: routes are code (reviewed in PRs), not dashboard clicks.
 
 Cloudflare Access is a Zero Trust feature, so it isn't used. Admin UIs (Dockge, Traefik dashboard,
-Uptime Kuma) are **never** published through the tunnel; they're reached over Tailscale.
+Uptime Kuma) are **never** published through the tunnel; they're reached over Tailscale
+(README → Private access).
 
 ## Files
 

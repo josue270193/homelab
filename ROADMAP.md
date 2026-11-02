@@ -77,6 +77,7 @@ Goal: add/expose a container from a UI, without touching Traefik config.
   AC: manage compose stacks from a web UI at `dockge.example.dev`.
 - **3.2 Protect admin UIs with Cloudflare Access**
   AC: Traefik dashboard and Dockge require login (email OTP) before loading.
+  Done differently: admin UIs are never public; reached over Tailscale only (Access needs a Zero Trust signup with a card).
 - **3.3 Expose a new image end-to-end from the UI**
   AC: from Dockge, deploy any public image with labels (host + port) and reach it over HTTPS in under 5 minutes; steps documented.
 
