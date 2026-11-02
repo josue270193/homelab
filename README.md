@@ -104,6 +104,7 @@ source instead of running the CI-tested image.
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. No route yet (#33). |
+| `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
@@ -185,7 +186,8 @@ Backups live on the same disk as the DB, so they protect against mistakes, not d
 Notes:
 - Traefik ignores a container until its healthcheck passes; a labeled service with a healthcheck
   returns 404 while `health: starting`.
-- Port 80 on the Mac must be free; stop any other local stack serving `http://localhost` first.
+- Traefik listens on `127.0.0.1:${TRAEFIK_HTTP_PORT:-80}`. If another local stack uses :80, set e.g.
+  `TRAEFIK_HTTP_PORT=8880` in `.env` and open `http://whoami.localhost:8880` (the tunnel is unaffected).
 
 ### Restart and health policy
 
@@ -201,6 +203,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `dockge` | image's `extra/healthcheck` |
 | `tailscale` | `tailscale status` via local socket: `BackendState` is `Running` |
 | `api` | image `HEALTHCHECK` on `/actuator/health` |
+| `cloudflared` | `cloudflared tunnel ready` (≥1 edge connection) |
 | `uptime-kuma` | image's `extra/healthcheck` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
