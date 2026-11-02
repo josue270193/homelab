@@ -45,6 +45,24 @@ docker run --rm -v "$PWD/cloudflared/config.yml:/etc/cloudflared/config.yml:ro" 
   cloudflare/cloudflared:2026.10.4 tunnel --config /etc/cloudflared/config.yml ingress validate
 ```
 
+## Running (#13)
+
+The `cloudflared` service in `compose.yaml` runs the tunnel: outbound only, on `proxy`, config and
+credentials mounted read-only, metrics on the container's `127.0.0.1:20241` only.
+
+| Check | How |
+|---|---|
+| Container health | `docker compose ps cloudflared` → `healthy` (`cloudflared tunnel ready`: ≥1 edge connection) |
+| Edge connections | `docker compose logs cloudflared \| grep "Registered tunnel connection"` (normally 4) |
+| From Cloudflare's side | `cf tunnel info homelab` → one connector, `2x<colo>, 2x<colo>` |
+
+**Linux (CachyOS PC):** the container runs as uid `65532`, and the credentials file is `600`. On the Mac,
+Docker Desktop hides this; on Linux the container can't read it. Before the first start there:
+
+```bash
+sudo chown 65532:65532 data/cloudflared/*.json
+```
+
 ## Recreate from scratch (new machine or lost credentials)
 
 1. `cf tunnel login`
