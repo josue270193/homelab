@@ -16,6 +16,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - [ROADMAP.md](ROADMAP.md) – epics, issues and acceptance criteria.
 - [CLAUDE.md](CLAUDE.md) – working agreement for Claude Code (branching, rules).
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
+- [docs/domain.md](docs/domain.md) – `josuedev.dpdns.org` on Cloudflare: nameservers, **manual renewal before 2027-11-02**.
 - [apps/api](apps/api/README.md) – Spring Boot API (Java 21): build, run, image layout.
 - Work is tracked in GitHub Issues: `gh issue list`.
 - Board: [Homelab project](https://github.com/users/josue270193/projects/2) with Status columns
