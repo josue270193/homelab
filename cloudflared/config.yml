@@ -1,0 +1,12 @@
+# Locally-managed Cloudflare Tunnel (created with the cloudflared CLI; no Zero Trust dashboard).
+# Routes live here, in git, and change through PRs. See docs/tunnel.md.
+#
+# The tunnel ID is not secret (it is public in DNS as <id>.cfargotunnel.com).
+# The credentials file IS secret: data/cloudflared/<id>.json, git-ignored, mounted read-only.
+
+tunnel: b220f235-2216-46a0-b12b-b82a505e06f1
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # Public routes are added in #14 (wildcard to Traefik). Until then nothing is exposed.
+  - service: http_status:404
