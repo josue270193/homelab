@@ -349,35 +349,43 @@ Open Dockge locally (<http://dockge.localhost:8880>, port = `TRAEFIK_HTTP_PORT`)
 
 **Publish any image at `https://<name>.josuedev.dpdns.org` (≈ 2 minutes):**
 
-1. **+ Compose**, stack name `<name>` (lowercase, unique).
-2. Paste this into the compose editor and change the 3 marked values:
+1. **+ Compose**, stack name, e.g. `myapp` (lowercase, unique).
+2. Paste this into the compose editor, then use find & replace to change **every** `myapp` (9 places)
+   to your stack name, and set the image and the container port:
 
    ```yaml
    services:
      app:
-       image: nginxdemos/hello:0.4-plain-text   # 1. pinned image (amd64 + arm64)
+       image: nginxdemos/hello:0.4-plain-text      # pinned image (amd64 + arm64)
        restart: unless-stopped
        networks: [proxy]
        labels:
          traefik.enable: "true"
-         traefik.http.routers.NAME.rule: Host(`NAME.localhost`)                 # 2. NAME = stack name
-         traefik.http.routers.NAME.entrypoints: web
-         traefik.http.routers.NAME.service: NAME
-         traefik.http.routers.NAME-public.rule: Host(`NAME.${DOMAIN:-localhost}`)
-         traefik.http.routers.NAME-public.entrypoints: public
-         traefik.http.routers.NAME-public.service: NAME
-         traefik.http.services.NAME.loadbalancer.server.port: "80"            # 3. port inside the container
+         traefik.http.routers.myapp.rule: Host(`myapp.localhost`)
+         traefik.http.routers.myapp.entrypoints: web
+         traefik.http.routers.myapp.service: myapp
+         traefik.http.routers.myapp-public.rule: Host(`myapp.${DOMAIN:-localhost}`)
+         traefik.http.routers.myapp-public.entrypoints: public
+         traefik.http.routers.myapp-public.service: myapp
+         traefik.http.services.myapp.loadbalancer.server.port: "80"   # port INSIDE the container
    networks:
      proxy:
        external: true
    ```
 
+   Replace it in the router and service **names** too, not only in the hosts: Traefik needs them
+   unique across all stacks. Missing one is easy to spot: the app answers on `https://myapp.<domain>`
+   (or on whatever name was left) instead of yours.
 3. In the stack's **.env** editor add `DOMAIN=josuedev.dpdns.org`. Without it the public router becomes
-   `NAME.localhost` and the internet gets **404** (Dockge doesn't read the root `.env`).
+   `myapp.localhost` and the internet gets **404** (Dockge doesn't read the root `.env`).
 4. **Deploy**, then open `https://<name>.josuedev.dpdns.org`. No DNS or tunnel change is needed (wildcard).
 
-To keep it **local only**, delete the three `NAME-public` lines. To remove it: **Stop** → **Delete** in Dockge.
-Tested end to end (copy, edit, deploy, public HTTPS 200) in 16 s by script, image download included.
+Troubleshooting a public 404: `curl -s http://traefik.localhost:8880/api/http/routers` lists every
+router with its rule; the public one must say `Host(<name>.josuedev.dpdns.org)` on entrypoint `public`.
+
+To keep it **local only**, delete the three `myapp-public` lines. To remove it: **Stop** → **Delete** in Dockge.
+Tested end to end: 16 s by script (image download included), and by hand from the Dockge UI with
+`springcommunity/spring-petclinic-rest:4.0.2` (port `9966`, served under `/petclinic`).
 
 Dockge lists every folder in `services/` as a stack (`_template` included) and can create, edit,
 deploy and stop them. Stacks created in the UI are written to `services/<name>/compose.yaml`, so
