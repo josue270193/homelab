@@ -418,6 +418,7 @@ Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 |---|---|---|---|
 | `compose-validate` | `compose` | every PR + push to `main` | `docker compose config` for dev, prod and every `services/*` stack |
 | `api-image` | `build` | PRs/pushes touching `apps/api/**` | builds amd64 + arm64, smoke test with Postgres, publishes to GHCR on `main` |
+| `portfolio-image` | `build` | PRs/pushes touching `apps/portfolio/**` | lint, builds amd64 + arm64, smoke test on `/api/health`, publishes to GHCR on `main` |
 
 Run the compose check locally before opening a PR (it uses `.env.example` with dummy secrets, never
 your `.env`):

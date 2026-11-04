@@ -27,6 +27,21 @@ Multi-stage on `node:24.22.1-alpine3.24`. It runs as the non-root `node` user, a
 `HEALTHCHECK` polls `/api/health`. The build stages run on `$BUILDPLATFORM`, so
 `--platform linux/amd64,linux/arm64` builds without emulating npm.
 
+## CI and images
+
+[`.github/workflows/portfolio-image.yml`](../../.github/workflows/portfolio-image.yml) runs on every PR
+and push to `main` that touches `apps/portfolio/`:
+
+1. `npm ci` + `npm run lint` on Node 24.22.1 (same as the image).
+2. Builds `linux/amd64` + `linux/arm64` with buildx (`next build` runs in the image build).
+3. Starts the amd64 image and waits for `healthy`. Then it checks `/api/health` and that the home page renders.
+4. **Only on `main`**, after the smoke test: pushes `ghcr.io/josue270193/homelab-portfolio` with tags
+   `latest` and `sha-<short commit sha>`. Pull requests never push.
+
+```bash
+docker pull ghcr.io/josue270193/homelab-portfolio:latest   # or :sha-<short sha> to pin a build
+```
+
 ## Notes
 
 - `output: "standalone"` in `next.config.ts`: the build emits a self-contained `server.js` with only
