@@ -1,0 +1,125 @@
+# Lints the portfolio, builds its image for linux/amd64 and linux/arm64 (Mac dev + CachyOS PC),
+# smoke-tests it, and on pushes to main publishes it to ghcr.io/<owner>/homelab-portfolio as
+# `latest` + `sha-<short sha>`. Same pattern as api-image.yml.
+# Pull requests build and test only; they never push.
+name: portfolio-image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/portfolio/**"
+      - ".github/workflows/portfolio-image.yml"
+  pull_request:
+    paths:
+      - "apps/portfolio/**"
+      - ".github/workflows/portfolio-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-image-${{ github.ref }}
+  # Cancel stale PR runs, but never a publish on main halfway through.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/homelab-portfolio
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write   # push to GHCR with GITHUB_TOKEN (only used on main)
+    steps:
+      # Actions pinned to commit SHAs (tags are mutable); version in the comment.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Lint natively; `next build` runs inside the image build below.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1   # same as the Dockerfile base image
+          cache: npm
+          cache-dependency-path: apps/portfolio/package-lock.json
+
+      - name: Lint
+        working-directory: apps/portfolio
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci --no-audit --no-fund
+          npm run lint
+
+      # QEMU only runs the arm64 runtime stage; npm/next run natively ($BUILDPLATFORM in the Dockerfile).
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build linux/amd64 + linux/arm64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/portfolio
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha,scope=portfolio
+          cache-to: type=gha,scope=portfolio,mode=max
+
+      # Smoke test: the amd64 image (same as the CachyOS PC) must start and report healthy.
+      - name: Load amd64 image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/portfolio
+          platforms: linux/amd64
+          load: true
+          tags: homelab-portfolio:ci
+          cache-from: type=gha,scope=portfolio
+
+      - name: Smoke test /api/health
+        run: |
+          docker run -d --name portfolio -p 127.0.0.1:3000:3000 homelab-portfolio:ci
+          for _ in $(seq 1 60); do
+            status=$(docker inspect portfolio --format '{{.State.Health.Status}}')
+            [ "$status" = healthy ] && break
+            sleep 1
+          done
+          docker logs portfolio | tail -5
+          [ "$status" = healthy ] || { echo "::error::container not healthy ($status)"; exit 1; }
+          curl -fsS http://127.0.0.1:3000/api/health
+          echo
+          curl -fsS http://127.0.0.1:3000/ | grep -q "<title>" || { echo "::error::home page has no <title>"; exit 1; }
+
+      # ---- Publish (main only, after the smoke test passed) ----
+      - name: Image tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same inputs as the first build, so every layer comes from cache: this only pushes.
+      - name: Push linux/amd64 + linux/arm64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/portfolio
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=portfolio
