@@ -19,6 +19,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
 - [docs/domain.md](docs/domain.md) – `josuedev.dpdns.org` on Cloudflare: nameservers, **manual renewal before 2027-11-02**.
 - [apps/api](apps/api/README.md) – Spring Boot API (Java 21): build, run, image layout.
+- [apps/portfolio](apps/portfolio/README.md) – portfolio website (Next.js), epic E9.
 - Work is tracked in GitHub Issues: `gh issue list`.
 - Board: [Homelab project](https://github.com/users/josue270193/projects/2) with Status columns
   **Backlog → Ready → In progress → Done**. New issues from `./create-issues.sh` land there when run
