@@ -15,6 +15,18 @@ npm run lint
 npm run build     # production build, also produces .next/standalone
 ```
 
+## Docker
+
+```bash
+docker build -t homelab-portfolio:dev .
+docker run --rm -p 127.0.0.1:3000:3000 homelab-portfolio:dev
+curl http://localhost:3000/api/health   # {"status":"UP"}
+```
+
+Multi-stage on `node:24.22.1-alpine3.24`. It runs as the non-root `node` user, and the
+`HEALTHCHECK` polls `/api/health`. The build stages run on `$BUILDPLATFORM`, so
+`--platform linux/amd64,linux/arm64` builds without emulating npm.
+
 ## Notes
 
 - `output: "standalone"` in `next.config.ts`: the build emits a self-contained `server.js` with only
