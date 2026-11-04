@@ -1,6 +1,6 @@
 # homelab-api
 
-Spring Boot 4.1 / Java 21 on Postgres. Only `/actuator/health` (plus `/liveness` and `/readiness`) is exposed;
+Spring Boot 4.1 / Java 21 on Postgres. Public at <https://api.josuedev.dpdns.org/actuator/health>. Only `/actuator/health` (plus `/liveness` and `/readiness`) is exposed;
 health includes the database connection.
 
 ## Build and run
@@ -27,6 +27,8 @@ docker buildx build --platform linux/amd64 --load -t homelab-api:amd64 .
   `compose.yaml` from `.env`). There is no default, so the app fails at startup without a database.
 - **Flyway owns the schema.** Migrations live in `src/main/resources/db/migration` and run on every
   start (no-op when up to date). Add a change as a new file `V<n>__<what>.sql`; never edit an applied one.
+- Behind Traefik + Cloudflare: `server.forward-headers-strategy: native` honors `X-Forwarded-Proto/For`
+  (Traefik's `public` entrypoint passes them through), so the app sees `https` and the client IP.
 - Hibernate runs with `ddl-auto: validate`: if an entity doesn't match the migrated schema, startup fails.
 - First entity: `Note` (`id`, `body`, `created_at`) in table `note` (`V1__create_note.sql`).
 - Tests run inside `docker build` without Postgres, against H2 in PostgreSQL mode (same migrations).
@@ -66,6 +68,3 @@ docker pull ghcr.io/josue270193/homelab-api:latest        # or :sha-<short sha> 
 If the package is private, log in first with a classic token that has `read:packages`
 (`docker login ghcr.io -u josue270193`, paste the token at the prompt so it stays out of shell history).
 
-## Not yet
-
-- Exposed through Traefik: #33.

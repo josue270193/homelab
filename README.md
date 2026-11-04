@@ -69,6 +69,7 @@ docker compose up -d
 | URL | Reachable from | Entry |
 |---|---|---|
 | `https://whoami.josuedev.dpdns.org` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
+| `https://api.josuedev.dpdns.org/actuator/health` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `http://<name>.localhost:${TRAEFIK_HTTP_PORT}` | this machine only | Traefik entrypoint `web` |
 
 Only routers on `public` are on the internet; admin UIs stay local (details in [docs/tunnel.md](docs/tunnel.md)).
@@ -112,7 +113,7 @@ source instead of running the CI-tested image.
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
-| `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. No route yet (#33). |
+| `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
