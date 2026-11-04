@@ -23,7 +23,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - Every issue has acceptance criteria; it is closed only when they pass.
 - Branch per issue: `feat/<issue-number>-short-name`, PR closes the issue.
 - Secrets live in `.env` (git-ignored); `.env.example` is committed.
-- Labels: `epic:E0`…`epic:E8`, `type:infra`, `type:app`, `type:docs`.
+- Labels: `epic:E0`…`epic:E9`, `type:infra`, `type:app`, `type:docs`.
 
 ---
 
@@ -134,6 +134,29 @@ Goal: something worth showing.
   AC: reachable over HTTPS via labels only.
 - **8.4 Write-up for portfolio**
   AC: blog post / README: "Self-hosting Java + AI projects behind CGNAT with Docker, Traefik and Cloudflare Tunnel".
+
+## E9 – Portfolio website (subproject)
+Goal: a personal site at the apex domain, built and deployed like the API.
+Code in `apps/portfolio/` (monorepo, no separate repo). Next.js + React + TypeScript.
+
+- **9.1 Scaffold Next.js app** (#70)
+  AC: `apps/portfolio` with latest stable Next.js (pinned), React 19, App Router, standalone output; lint + build pass.
+- **9.2 Dockerfile + health endpoint** (#71)
+  AC: multi-stage, non-root, amd64 + arm64; `/api/health` 200 and Docker healthcheck.
+- **9.3 CI to GHCR** (#72)
+  AC: `portfolio-image` workflow builds, smoke-tests and publishes `latest` + `sha-<short>` on `main`.
+- **9.4 Serve at the apex domain** (#73)
+  AC: `https://<domain>` (and `www.` redirect) via tunnel → Traefik `public`; Kuma monitor.
+- **9.5 Content** (#74)
+  AC: intro, projects (incl. this homelab), social links; responsive, accessible; SEO; Lighthouse ≥ 90.
+- **9.6 CV download** (#75)
+  AC: PDF outside git (public repo), mounted read-only; hidden if missing.
+- **9.7 Contact form → Telegram** (#76)
+  AC: server-side delivery via a dedicated bot; secrets in `.env`; disabled in production until 9.8.
+- **9.8 Bot protection** (#77)
+  AC: Cloudflare Turnstile verified server-side, honeypot, per-IP rate limit; then enable in production.
+- **9.9 (Optional) Email delivery** (#78)
+  AC: transactional email with SPF/DKIM in Cloudflare DNS.
 
 ## Later (not planned yet)
 - Custom Spring Boot control panel replacing Dockge for routing config.
