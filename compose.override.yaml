@@ -10,3 +10,9 @@ services:
       context: ./apps/api
     image: homelab-api:dev   # local tag; never overwrites the GHCR image
     pull_policy: build
+
+  portfolio:
+    build:
+      context: ./apps/portfolio
+    image: homelab-portfolio:dev   # local tag; never overwrites the GHCR image
+    pull_policy: build

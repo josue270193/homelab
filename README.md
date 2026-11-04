@@ -74,6 +74,7 @@ docker compose up -d
 |---|---|---|
 | `https://whoami.josuedev.dpdns.org` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `https://api.josuedev.dpdns.org/actuator/health` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
+| `https://josuedev.dpdns.org` (portfolio; `www.` → 301 to it) | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `http://<name>.localhost:${TRAEFIK_HTTP_PORT}` | this machine only | Traefik entrypoint `web` |
 
 Only routers on `public` are on the internet; admin UIs stay local (details in [docs/tunnel.md](docs/tunnel.md)).
@@ -85,6 +86,7 @@ Only routers on `public` are on the internet; admin UIs stay local (details in [
 | Files loaded | `compose.yaml` + `compose.override.yaml` (automatic) | `compose.yaml` only |
 | How | default | `COMPOSE_FILE=compose.yaml` in that machine's `.env` |
 | `api` image | built from `apps/api` → `homelab-api:dev` | pulled from `ghcr.io/josue270193/homelab-api:${API_TAG:-latest}` |
+| `portfolio` image | built from `apps/portfolio` → `homelab-portfolio:dev` | pulled from `ghcr.io/josue270193/homelab-portfolio:${PORTFOLIO_TAG:-latest}` |
 
 ```bash
 # Mac: rebuild and restart the API after a code change
@@ -118,6 +120,7 @@ source instead of running the CI-tested image.
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost:8880/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost:8880> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
+| `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). GHCR image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost:8880>. |
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost:8880> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost:8880>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
@@ -227,6 +230,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `dockge` | image's `extra/healthcheck` |
 | `tailscale` | `tailscale status` via local socket: `BackendState` is `Running` |
 | `api` | image `HEALTHCHECK` on `/actuator/health` |
+| `portfolio` | image `HEALTHCHECK` on `/api/health` |
 | `cloudflared` | `cloudflared tunnel ready` (≥1 edge connection) |
 | `uptime-kuma` | image's `extra/healthcheck` |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
@@ -254,6 +258,7 @@ Monitors (Add New Monitor; interval 60 s, retries 2):
 | API | HTTP(s) - Keyword | `http://api:8080/actuator/health`, keyword `"UP"` | API **and** Postgres (health includes the DB) |
 | Traefik → whoami | HTTP(s) | `http://traefik:80/health` with header `{"Host": "whoami.localhost"}` | Traefik routing end to end |
 | Dockge | HTTP(s) | `http://dockge:5001/` | Dockge UI |
+| Portfolio (public) | HTTP(s) - Keyword | `https://josuedev.dpdns.org/api/health`, keyword `"UP"` | portfolio through Cloudflare → tunnel → Traefik `public` |
 | Postgres backups | Push (later) | — | daily backup heartbeat; not wired yet (needs the push URL in `pg-backup.sh`) |
 
 Kuma is only on `proxy`: it can't reach `postgres` or `docker-socket-proxy` directly, on purpose.
