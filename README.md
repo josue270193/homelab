@@ -66,6 +66,9 @@ docker compose up -d
 
 ### Public vs local
 
+> Local URLs in this README use `:8880`, the Mac's `TRAEFIK_HTTP_PORT` (CryptoMate owns `:80`).
+> Without the port you reach whatever else listens on `:80`, not the homelab.
+
 | URL | Reachable from | Entry |
 |---|---|---|
 | `https://whoami.josuedev.dpdns.org` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
@@ -111,12 +114,12 @@ source instead of running the CI-tested image.
 
 | Service               | Network    | Notes |
 |-----------------------|------------|-------|
-| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
-| `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
+| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost:8880/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
+| `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost:8880> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
-| `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
-| `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
+| `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost:8880> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
+| `whoami`              | `proxy`    | Test service at <http://whoami.localhost:8880>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
 | `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres and the admin UIs (see Private access). |
@@ -234,13 +237,13 @@ container until it is healthy). Images without a shell use Traefik's
 
 ## Monitoring
 
-Uptime Kuma runs at <http://status.localhost> locally and over Tailscale (see Private access). Its monitors
+Uptime Kuma runs at <http://status.localhost:8880> locally and over Tailscale (see Private access). Its monitors
 and notification settings live in its own database (volume `homelab_uptime-kuma-data`), not in git,
 so the list below is the source of truth to recreate them.
 
 First run:
 
-1. Open <http://status.localhost>, choose **SQLite** (the `slim` image has no embedded MariaDB).
+1. Open <http://status.localhost:8880>, choose **SQLite** (the `slim` image has no embedded MariaDB).
 2. Create the admin account (yours; use a password manager).
 
 Monitors (Add New Monitor; interval 60 s, retries 2):
@@ -262,6 +265,21 @@ Notifications (Settings → Notifications → Setup Notification → Telegram):
 3. **Test**, then enable **Default enabled / Apply on all existing monitors**.
 
 The bot token is stored only in Kuma's database, never in `.env` or git.
+
+## If `data/` is lost
+
+`data/` (git-ignored) is **not backed up**; only Postgres is (`backups/postgres`). Named volumes
+(`homelab_postgres-data`, `homelab_uptime-kuma-data`) live in Docker, not in `data/`, and survive.
+If `data/` is deleted, `docker compose up` recreates empty folders, and the bind-mounted tunnel
+credentials *file* comes back as an empty **directory**. Recovery (done for real on 2026-11-03):
+
+| Lost | Symptom | Recover |
+|---|---|---|
+| `data/cloudflared/<id>.json` | public URLs → Cloudflare **530**; `cloudflared` logs "credentials file … is not a file" | `docker compose stop cloudflared`, `rmdir` the empty dir, `cf tunnel login` (browser: pick the zone, **Authorize**), then `cf tunnel token --cred-file /home/nonroot/.cloudflared/<id>.json homelab >/dev/null` (same tunnel, no DNS change), then `docker compose up -d --force-recreate cloudflared` |
+| `data/tailscale/` | `homelab-db` "Logged out" / crash-loops every ~60 s | Tailscale admin: **remove** the old offline `homelab-db` (or the new one becomes `homelab-db-1`); new single-use auth key in `.env` as `TS_AUTHKEY`; `docker compose up -d --force-recreate tailscale`; delete the line afterwards. Login links don't work: `containerboot` gives up after ~60 s and each restart makes a new link. |
+| `data/dockge/` | Dockge opens on `/setup` | create the admin account again (stacks in `services/` are untouched) |
+
+`cf` is the helper defined in [docs/tunnel.md](docs/tunnel.md).
 
 ## Logs
 
