@@ -15,6 +15,13 @@ npm run lint
 npm run build     # production build, also produces .next/standalone
 ```
 
+## Content
+
+Everything the site says lives in [`src/content/profile.ts`](src/content/profile.ts): name, headline,
+about text, social links and projects. The page, metadata, Open Graph image (`opengraph-image.tsx`,
+generated at build time), `robots.txt` and `sitemap.xml` all read from it. To add a project or a social
+link, edit only that file.
+
 ## Docker
 
 ```bash

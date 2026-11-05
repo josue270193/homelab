@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { profile, siteUrl } from "@/content/profile";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +13,24 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const title = `${profile.name}: ${profile.headline}`;
+const description = `${profile.headline}. ${profile.studying}, based in ${profile.location}.`;
+
+// Open Graph / Twitter images come from opengraph-image.tsx; URLs resolve against metadataBase.
 export const metadata: Metadata = {
-  title: "Josue Lopez",
-  description: "Portfolio of Josue Lopez",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", url: "/", siteName: profile.name, title, description },
+  twitter: { card: "summary_large_image", title, description },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
