@@ -153,6 +153,36 @@ services:
       traefik.http.routers.api-public.service: api
       traefik.http.services.api.loadbalancer.server.port: "8080"
 
+  # Portfolio website (apps/portfolio, E9). Public at the apex domain; www. redirects there.
+  # The image has its own HEALTHCHECK on /api/health.
+  portfolio:
+    image: ghcr.io/josue270193/homelab-portfolio:${PORTFOLIO_TAG:-latest}   # PORTFOLIO_TAG=sha-<short sha> pins a build
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.portfolio.rule: Host(`portfolio.localhost`)
+      traefik.http.routers.portfolio.entrypoints: web
+      traefik.http.routers.portfolio.service: portfolio
+      traefik.http.routers.portfolio-public.rule: Host(`${DOMAIN:-localhost}`)
+      traefik.http.routers.portfolio-public.entrypoints: public
+      traefik.http.routers.portfolio-public.service: portfolio
+      # www.<domain> -> https://<domain>, 301, path kept. HTTPS is terminated at Cloudflare.
+      traefik.http.routers.portfolio-www.rule: Host(`www.${DOMAIN:-localhost}`)
+      traefik.http.routers.portfolio-www.entrypoints: public
+      traefik.http.routers.portfolio-www.middlewares: portfolio-www-redirect
+      traefik.http.routers.portfolio-www.service: portfolio
+      traefik.http.middlewares.portfolio-www-redirect.redirectregex.regex: ^https?://www\.(.+)
+      traefik.http.middlewares.portfolio-www-redirect.redirectregex.replacement: https://$${1}
+      traefik.http.middlewares.portfolio-www-redirect.redirectregex.permanent: "true"
+      traefik.http.services.portfolio.loadbalancer.server.port: "3000"
+
   # Uptime monitoring + notifications at status.<domain>. Monitors live in its own DB (UI-managed),
   # listed in README so they can be recreated. Rootless image; no Docker socket.
   # Loopback only until Cloudflare Access protects it (#16).

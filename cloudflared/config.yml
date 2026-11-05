@@ -10,7 +10,10 @@ credentials-file: /etc/cloudflared/credentials.json
 ingress:
   # Every subdomain goes to Traefik's `public` entrypoint (NOT :80). Only routers that declare
   # entrypoints=public answer there; admin UIs live on `web` and return 404 from the internet.
+  # Apex: the portfolio (#73). The wildcard below does not match the bare domain.
+  - hostname: josuedev.dpdns.org
+    service: http://traefik:8000
   - hostname: "*.josuedev.dpdns.org"
     service: http://traefik:8000
-  # Apex and anything else
+  # Anything else
   - service: http_status:404

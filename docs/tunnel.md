@@ -49,7 +49,7 @@ docker run --rm -v "$PWD/cloudflared/config.yml:/etc/cloudflared/config.yml:ro" 
 ## Public vs private (#14)
 
 ```
-Internet ──HTTPS──> Cloudflare (*.josuedev.dpdns.org, wildcard cert)
+Internet ──HTTPS──> Cloudflare (josuedev.dpdns.org + *.josuedev.dpdns.org)
                       │ tunnel
                       ▼
                cloudflared ──> traefik:8000  (entrypoint `public`, not published on the host)
@@ -58,9 +58,12 @@ Internet ──HTTPS──> Cloudflare (*.josuedev.dpdns.org, wildcard cert)
 Mac browser ──> 127.0.0.1:${TRAEFIK_HTTP_PORT} ──> traefik:80 (entrypoint `web`): all local routers
 ```
 
-- DNS: one proxied wildcard `CNAME *.josuedev.dpdns.org → <tunnel-id>.cfargotunnel.com`
-  (`cf tunnel route dns homelab '*.josuedev.dpdns.org'`). The apex has no record.
-- Ingress: `*.josuedev.dpdns.org → http://traefik:8000`, anything else `http_status:404`.
+- DNS: two proxied CNAMEs to `<tunnel-id>.cfargotunnel.com`:
+  - `*.josuedev.dpdns.org` (`cf tunnel route dns homelab '*.josuedev.dpdns.org'`)
+  - the apex `josuedev.dpdns.org`, for the portfolio (#73). Cloudflare flattens it, and the wildcard does not cover it:
+    `cf tunnel route dns homelab josuedev.dpdns.org`
+- Ingress: the apex and `*.josuedev.dpdns.org` both go to `http://traefik:8000`. Anything else gets `http_status:404`.
+- `www.` needs no extra record: the wildcard covers it, and the `portfolio-www` router answers with a 301 to `https://<domain>`.
 - **To make a service public**, give it a second router on `public` with rule ``Host(`<sub>.${DOMAIN}`)``
   (see `whoami-public` in `compose.yaml` and the commented block in `services/_template`).
   No tunnel or DNS change is needed for new subdomains.
