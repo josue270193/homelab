@@ -21,6 +21,22 @@ export const de: Dictionary = {
   live: "Live",
   opensInNewTab: "(öffnet in neuem Tab)",
   contactIntro: "Lust auf Zusammenarbeit oder einfach Hallo sagen? Hier findest du mich:",
+  contactForm: {
+    title: "Oder schreib mir eine Nachricht",
+    name: "Name",
+    email: "E-Mail",
+    message: "Nachricht",
+    send: "Nachricht senden",
+    sending: "Wird gesendet…",
+    success: "Danke! Deine Nachricht ist unterwegs, ich melde mich bald.",
+    error: "Die Nachricht konnte leider nicht gesendet werden. Versuch es später noch einmal oder schreib mir über die Links oben.",
+    invalid: {
+      name: "Bitte gib deinen Namen ein (bis zu 100 Zeichen).",
+      email: "Bitte gib eine gültige E-Mail-Adresse ein.",
+      message: "Bitte schreib zwischen 10 und 2000 Zeichen.",
+    },
+    privacy: "Deine Nachricht wird mir per Telegram zugestellt und nicht auf dieser Seite gespeichert.",
+  },
   footer: "selbst gehostet in meinem Homelab",
   theme: { label: "Farbschema", switchTo: "Wechseln zu", system: "System", light: "hell", dark: "dunkel" },
   projects: {

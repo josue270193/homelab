@@ -20,6 +20,22 @@ export const en = {
   live: "Live",
   opensInNewTab: "(opens in a new tab)",
   contactIntro: "Want to work together or just say hi? Find me here:",
+  contactForm: {
+    title: "Or send me a message",
+    name: "Name",
+    email: "Email",
+    message: "Message",
+    send: "Send message",
+    sending: "Sending…",
+    success: "Thanks! Your message is on its way, I'll get back to you soon.",
+    error: "Sorry, the message couldn't be sent. Please try again later or reach me through the links above.",
+    invalid: {
+      name: "Please enter your name (up to 100 characters).",
+      email: "Please enter a valid email address.",
+      message: "Please write between 10 and 2000 characters.",
+    },
+    privacy: "Your message is delivered to me via Telegram and is not stored on this site.",
+  },
   footer: "self-hosted on my homelab",
   theme: { label: "Theme", switchTo: "Switch to", system: "system", light: "light", dark: "dark" },
   projects: {
