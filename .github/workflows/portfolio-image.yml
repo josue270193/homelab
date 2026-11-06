@@ -38,20 +38,21 @@ jobs:
       # Actions pinned to commit SHAs (tags are mutable); version in the comment.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Lint natively; `next build` runs inside the image build below.
+      # Lint and unit-test natively; `next build` runs inside the image build below.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.22.1   # same as the Dockerfile base image
           cache: npm
           cache-dependency-path: apps/portfolio/package-lock.json
 
-      - name: Lint
+      - name: Lint and unit tests
         working-directory: apps/portfolio
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: |
           npm ci --no-audit --no-fund
           npm run lint
+          npm test
 
       # QEMU only runs the arm64 runtime stage; npm/next run natively ($BUILDPLATFORM in the Dockerfile).
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
