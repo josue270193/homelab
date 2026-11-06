@@ -1,5 +1,5 @@
 import { profile, projects, socials } from "@/content/profile";
-import { Icon } from "./icons";
+import { LinkButton } from "./link-button";
 
 // Colors, radii and glow come from the design-system tokens in globals.css (#85).
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -75,17 +75,17 @@ export default function Home() {
                       </li>
                     ))}
                   </ul>
-                  <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
+                  <ul className="mt-5 flex flex-wrap gap-3">
                     <li>
-                      <a className={link} href={project.repo} target="_blank" rel="noopener noreferrer">
-                        Source code<span className="sr-only"> of {project.name} (opens in a new tab)</span>
-                      </a>
+                      <LinkButton href={project.repo} variant="primary" size="sm" icon="github" srLabel={` of ${project.name}`}>
+                        Source code
+                      </LinkButton>
                     </li>
                     {project.demos?.map((demo) => (
                       <li key={demo.href}>
-                        <a className={link} href={demo.href} target="_blank" rel="noopener noreferrer">
-                          Live: {demo.label}<span className="sr-only"> (opens in a new tab)</span>
-                        </a>
+                        <LinkButton href={demo.href} size="sm">
+                          Live: {demo.label}
+                        </LinkButton>
                       </li>
                     ))}
                   </ul>
@@ -101,14 +101,9 @@ export default function Home() {
           <ul className="mt-6 flex flex-wrap gap-4">
             {socials.map((s) => (
               <li key={s.label}>
-                <a
-                  href={s.href}
-                  {...(s.href.startsWith("http") && { target: "_blank", rel: "noopener noreferrer me" })}
-                  className={`inline-flex items-center gap-2 rounded-control border border-border bg-surface px-4 py-2 font-medium transition-[color,box-shadow] duration-200 hover:text-primary hover:shadow-glow ${focus}`}
-                >
-                  <Icon name={s.icon} />
+                <LinkButton href={s.href} icon={s.icon} rel="me">
                   {s.label}
-                </a>
+                </LinkButton>
               </li>
             ))}
           </ul>
@@ -118,7 +113,7 @@ export default function Home() {
       <footer className="border-t border-border py-6 text-center font-mono text-xs text-muted">
         © {profile.name} ·{" "}
         <a className={link} href={projects[0].repo} target="_blank" rel="noopener noreferrer">
-          self-hosted on my homelab
+          self-hosted on my homelab<span className="sr-only"> (opens in a new tab)</span>
         </a>
       </footer>
     </>
