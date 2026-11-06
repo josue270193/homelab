@@ -17,13 +17,13 @@ export default function Image() {
           flexDirection: "column",
           justifyContent: "center",
           padding: 96,
-          background: "#09090b",
-          color: "#fafafa",
+          background: "#070b0d",
+          color: "#e6f1f2",
         }}
       >
-        <div style={{ fontSize: 32, color: "#5eead4" }}>josuedev.dpdns.org</div>
+        <div style={{ fontSize: 32, color: "#2cd5c4" }}>josuedev.dpdns.org</div>
         <div style={{ fontSize: 88, fontWeight: 700, marginTop: 16 }}>{profile.name}</div>
-        <div style={{ fontSize: 40, color: "#d4d4d8", marginTop: 16 }}>{profile.headline}</div>
+        <div style={{ fontSize: 40, color: "#93a7ab", marginTop: 16 }}>{profile.headline}</div>
       </div>
     ),
     size,

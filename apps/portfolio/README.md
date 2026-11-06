@@ -22,6 +22,46 @@ about text, social links and projects. The page, metadata, Open Graph image (`op
 generated at build time), `robots.txt` and `sitemap.xml` all read from it. To add a project or a social
 link, edit only that file.
 
+## Design system
+
+Minimalist, with a light gamer/HUD touch and a blue-green primary color. The tokens are defined once
+in [`src/app/globals.css`](src/app/globals.css) as CSS variables, which Tailwind 4 `@theme` turns into
+utilities. Components use only these, never raw palette classes (`zinc-*`, `teal-*`) or `dark:`
+variants. A theme switch is just a new set of variables.
+
+| Token | Utility | Light | Dark | Use |
+|---|---|---|---|---|
+| `--bg` | `bg-bg` | `#f8fafa` | `#070b0d` | page background |
+| `--surface` | `bg-surface` | `#ffffff` | `#0e1518` | cards, buttons |
+| `--fg` | `text-fg` | `#0b1416` | `#e6f1f2` | headings, body text |
+| `--muted` | `text-muted` | `#4a5a5e` | `#93a7ab` | secondary text, tags |
+| `--border` | `border-border` | `#d5e0e1` | `#1f2d31` | decorative borders only |
+| `--primary` | `text-primary`, `bg-primary`, `outline-primary` | `#0a7480` | `#2cd5c4` | accents, links, focus |
+| `--primary-fg` | `text-primary-fg` | `#ffffff` | `#04211f` | text on `bg-primary` |
+
+Contrast (WCAG 2.x; AA needs 4.5:1 for body text, 3:1 for large text and UI):
+
+| Pair | Light | Dark |
+|---|---|---|
+| fg on bg / surface | 17.8 / 18.7 | 17.2 / 16.0 |
+| muted on bg / surface | 6.9 / 7.2 | 7.9 / 7.3 |
+| primary on bg / surface | 5.2 / 5.5 | 10.8 / 10.0 |
+| primary-fg on primary | 5.5 | 9.2 |
+
+`--border` (about 1.3:1) is decorative: never the only thing that marks a control's edge or state.
+
+Other tokens: `rounded-control` (0.5rem: buttons, chips) and `rounded-card` (0.75rem), plus
+`shadow-glow` (a primary edge and soft glow, **on hover/focus only**).
+
+Gamer touches (keep them few):
+
+- Geist Mono for labels, nav, tags and the footer.
+- `> Hi, I'm_` with a blinking caret (`caret`, which stops under `prefers-reduced-motion`).
+- Numbered section titles (`01`, `02`, ...).
+- `hud-corners`: primary brackets on two corners of a card.
+
+No extra fonts, images or background effects.
+
 ## Docker
 
 ```bash
