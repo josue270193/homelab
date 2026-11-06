@@ -5,13 +5,14 @@ Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4.
 
 ## Run locally
 
-Needs Node ≥ 20.9.
+Needs Node ≥ 20.9 (`npm test` needs ≥ 22.18, which runs TypeScript directly; CI and Docker use 24).
 
 ```bash
 cd apps/portfolio
 npm ci
 npm run dev       # http://localhost:3000
 npm run lint
+npm test          # unit tests (node --test)
 npm run build     # production build, also produces .next/standalone
 ```
 
@@ -31,8 +32,19 @@ To add a project, add it to `projects` in `profile.ts` (with an `id`) and add it
 `projects.<id>` in **every** dictionary. To add a language, add it to `locales` in
 [`src/content/i18n.ts`](src/content/i18n.ts) and create its dictionary.
 
-Routes live under `src/app/[lang]/`. `/` redirects to `/en` with a 307, set in `next.config.ts`; #91
-replaces this with per-visitor detection. Each page has hreflang alternates (`x-default` → `/en`) and a
+Routes live under `src/app/[lang]/`. [`src/proxy.ts`](src/proxy.ts) redirects `/` with a 307 to the
+visitor's language, using the first of these that applies:
+
+1. the `lang` cookie (set by the language switcher, #92): an explicit choice always wins;
+2. the country from Cloudflare's `CF-IPCountry` header, mapped by `countryLocale` in
+   [`locale-detection.ts`](src/content/locale-detection.ts): Spanish-speaking countries → `es`,
+   DE/AT/CH/LI → `de`, any other country → `en`;
+3. `Accept-Language`, only when there is no country (local dev, tailnet, Cloudflare's `XX`/`T1`);
+4. `en`.
+
+The redirect is `Cache-Control: private, no-store` (the answer depends on the visitor). The pages
+themselves stay static. `npm test` runs the unit tests for this decision (Node's built-in test runner,
+also in CI). Each page has hreflang alternates (`x-default` → `/en`) and a
 canonical URL, `sitemap.xml` lists all three, and the Open Graph image is rendered per locale with
 the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not localized.
 
