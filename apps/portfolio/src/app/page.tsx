@@ -1,5 +1,6 @@
 import { profile, projects, socials } from "@/content/profile";
 import { LinkButton } from "./link-button";
+import { ThemeToggle } from "./theme-toggle";
 
 // Colors, radii and glow come from the design-system tokens in globals.css (#85).
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -26,7 +27,10 @@ export default function Home() {
         Skip to content
       </a>
 
-      <header className="mx-auto w-full max-w-3xl px-6 pt-20 pb-12 sm:pt-28">
+      <header className="relative mx-auto w-full max-w-3xl px-6 pt-20 pb-12 sm:pt-28">
+        <div className="absolute right-6 top-6">
+          <ThemeToggle />
+        </div>
         <p className="font-mono text-sm text-primary">
           &gt; Hi, I&apos;m<span aria-hidden="true" className="caret">_</span>
         </p>

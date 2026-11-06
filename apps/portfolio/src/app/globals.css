@@ -6,6 +6,11 @@
  * works in both themes; components never use raw palette classes or dark: variants.
  * Contrast ratios are in apps/portfolio/README.md (Design system).
  */
+/*
+ * Theme (#87): no data-theme attribute = follow the OS (media query). The toggle sets
+ * data-theme="light" | "dark" on <html> (before first paint, see theme-script.ts) to override it.
+ * The dark values appear twice on purpose: CSS can't share a block between a media query and a selector.
+ */
 :root {
   color-scheme: light dark;
   --bg: #f8fafa;
@@ -17,9 +22,8 @@
   --primary-fg: #ffffff;
 }
 
-/* The theme toggle (#87) will switch these with a class instead of the media query. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #070b0d;
     --surface: #0e1518;
     --fg: #e6f1f2;
@@ -27,6 +31,33 @@
     --border: #1f2d31;
     --primary: #2cd5c4;
     --primary-fg: #04211f;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #070b0d;
+  --surface: #0e1518;
+  --fg: #e6f1f2;
+  --muted: #93a7ab;
+  --border: #1f2d31;
+  --primary: #2cd5c4;
+  --primary-fg: #04211f;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Keep `dark:` utilities (if ever needed) in sync with the toggle, not only with the OS. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
   }
 }
 
@@ -91,6 +122,22 @@ body {
 
 @utility caret {
   animation: caret-blink 1.1s steps(1) infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* Theme toggle icon swap. */
+@keyframes icon-in {
+  from {
+    opacity: 0;
+    rotate: -90deg;
+    scale: 0.6;
+  }
+}
+
+@utility icon-in {
+  animation: icon-in 200ms ease-out;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
