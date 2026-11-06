@@ -62,6 +62,23 @@ Gamer touches (keep them few):
 
 No extra fonts, images or background effects.
 
+### Theme (light/dark)
+
+The toggle in the header cycles through three states and saves the choice in `localStorage` (key `theme`):
+
+- **System** (default): no stored key. The `prefers-color-scheme` media query decides and follows OS changes live.
+- **Light** / **Dark**: sets `data-theme` on `<html>`, which overrides the media query in `globals.css`.
+
+The inline script in `<head>` ([`theme-script.ts`](src/app/theme-script.ts)) applies the stored choice
+before first paint, so there is no flash of the wrong theme. The toggle also pins the `theme-color` meta
+to the chosen theme, and other tabs follow through the `storage` event.
+
+- Without JavaScript the toggle doesn't render and the OS theme applies.
+- If storage is blocked, the choice still applies to the current page view.
+
+`dark:` utilities follow the same rule through a custom variant, though components don't need them:
+the tokens already switch.
+
 ### Buttons
 
 Action links (project repo, live demos, socials) use
