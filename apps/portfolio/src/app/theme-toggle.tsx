@@ -58,9 +58,10 @@ function apply(choice: ThemeChoice) {
   });
 }
 
-const labels: Record<ThemeChoice, string> = { system: "system", light: "light", dark: "dark" };
+// Localized strings from the page's dictionary (#90); a client component can't load it itself.
+type Labels = Record<ThemeChoice, string> & { label: string; switchTo: string };
 
-export function ThemeToggle() {
+export function ThemeToggle({ labels }: { labels: Labels }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export function ThemeToggle() {
   if (!theme) return <span aria-hidden="true" className="inline-block h-10 w-10" />;
 
   const next = order[(order.indexOf(theme) + 1) % order.length];
-  const label = `Theme: ${labels[theme]}. Switch to ${labels[next]}`;
+  const label = `${labels.label}: ${labels[theme]}. ${labels.switchTo} ${labels[next]}`;
 
   return (
     <button

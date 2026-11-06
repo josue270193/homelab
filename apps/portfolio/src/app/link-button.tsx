@@ -31,10 +31,12 @@ type Props = {
   icon?: Social["icon"];
   // Extra screen-reader context, e.g. which project "Source code" belongs to.
   srLabel?: string;
+  // Localized "(opens in a new tab)", read by screen readers on external links.
+  newTabHint: string;
   rel?: string;
 };
 
-export function LinkButton({ href, children, variant = "secondary", size = "md", icon, srLabel, rel }: Props) {
+export function LinkButton({ href, children, variant = "secondary", size = "md", icon, srLabel, newTabHint, rel }: Props) {
   const external = href.startsWith("http");
   return (
     <a
@@ -47,7 +49,7 @@ export function LinkButton({ href, children, variant = "secondary", size = "md",
       {(srLabel || external) && (
         <span className="sr-only">
           {srLabel}
-          {external && " (opens in a new tab)"}
+          {external && ` ${newTabHint}`}
         </span>
       )}
     </a>

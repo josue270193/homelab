@@ -91,7 +91,8 @@ jobs:
           [ "$status" = healthy ] || { echo "::error::container not healthy ($status)"; exit 1; }
           curl -fsS http://127.0.0.1:3000/api/health
           echo
-          curl -fsS http://127.0.0.1:3000/ | grep -q "<title>" || { echo "::error::home page has no <title>"; exit 1; }
+          # `/` redirects to a locale (#90); -L follows it, so this also checks the redirect.
+          curl -fsSL http://127.0.0.1:3000/ | grep -q "<title>" || { echo "::error::home page has no <title>"; exit 1; }
 
       # ---- Publish (main only, after the smoke test passed) ----
       - name: Image tags

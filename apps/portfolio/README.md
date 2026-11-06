@@ -15,12 +15,29 @@ npm run lint
 npm run build     # production build, also produces .next/standalone
 ```
 
-## Content
+## Content and languages
 
-Everything the site says lives in [`src/content/profile.ts`](src/content/profile.ts): name, headline,
-about text, social links and projects. The page, metadata, Open Graph image (`opengraph-image.tsx`,
-generated at build time), `robots.txt` and `sitemap.xml` all read from it. To add a project or a social
-link, edit only that file.
+The site is in English, Spanish and German, at `/en`, `/es` and `/de`. All three are static pages.
+Content lives in two places:
+
+- [`src/content/profile.ts`](src/content/profile.ts): language-neutral data (name, links, repos,
+  tech names, demo URLs).
+- [`src/content/dictionaries/`](src/content/dictionaries): everything a visitor reads as prose
+  (headline, about, section titles, button labels, screen-reader hints), one file per locale.
+  `en.ts` defines the shape and `es.ts` / `de.ts` must match it, so a missing key fails
+  `npm run build` (TypeScript).
+
+To add a project, add it to `projects` in `profile.ts` (with an `id`) and add its texts under
+`projects.<id>` in **every** dictionary. To add a language, add it to `locales` in
+[`src/content/i18n.ts`](src/content/i18n.ts) and create its dictionary.
+
+Routes live under `src/app/[lang]/`. `/` redirects to `/en` with a 307, set in `next.config.ts`; #91
+replaces this with per-visitor detection. Each page has hreflang alternates (`x-default` → `/en`) and a
+canonical URL, `sitemap.xml` lists all three, and the Open Graph image is rendered per locale with
+the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not localized.
+
+Wording: "Desarrollador" / "Entwickler" rather than "Ingeniero" / "Ingenieur", which are regulated
+titles in Argentina and Germany.
 
 ## Design system
 
