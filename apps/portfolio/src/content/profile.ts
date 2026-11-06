@@ -14,12 +14,13 @@ export const profile = {
   ],
 };
 
-export type Social = { label: string; href: string; icon: "github" | "linkedin" | "email" };
+export type Social = { label: string; href: string; icon: "github" | "linkedin" | "steam" | "email" };
 
 // Shown in the contact section and the footer. An entry without href is skipped.
 export const socials: Social[] = [
   { label: "GitHub", href: "https://github.com/josue270193", icon: "github" },
   { label: "LinkedIn", href: "https://www.linkedin.com/in/josue-david/", icon: "linkedin" },
+  { label: "Steam", href: "https://steamcommunity.com/profiles/76561197989703136/", icon: "steam" },
   // { label: "Email", href: "mailto:<you>@<domain>", icon: "email" },
 ];
 
