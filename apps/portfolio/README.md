@@ -35,12 +35,18 @@ To add a project, add it to `projects` in `profile.ts` (with an `id`) and add it
 Routes live under `src/app/[lang]/`. [`src/proxy.ts`](src/proxy.ts) redirects `/` with a 307 to the
 visitor's language, using the first of these that applies:
 
-1. the `lang` cookie (set by the language switcher, #92): an explicit choice always wins;
+1. the `lang` cookie: an explicit choice always wins;
 2. the country from Cloudflare's `CF-IPCountry` header, mapped by `countryLocale` in
    [`locale-detection.ts`](src/content/locale-detection.ts): Spanish-speaking countries → `es`,
    DE/AT/CH/LI → `de`, any other country → `en`;
 3. `Accept-Language`, only when there is no country (local dev, tailnet, Cloudflare's `XX`/`T1`);
 4. `en`.
+
+The **language switcher** (EN · ES · DE, next to the theme toggle,
+[`language-switcher.tsx`](src/app/language-switcher.tsx)) uses plain links to `/{lang}`, so it works
+without JavaScript. With JavaScript, a click also sets the `lang` cookie (1 year, `SameSite=Lax`,
+`Secure` on HTTPS) and keeps the current `#section`. Each link has `hreflang`/`lang` so screen
+readers pronounce the language name correctly, and the current one has `aria-current`.
 
 The redirect is `Cache-Control: private, no-store` (the answer depends on the visitor). The pages
 themselves stay static. `npm test` runs the unit tests for this decision (Node's built-in test runner,

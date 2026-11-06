@@ -10,6 +10,7 @@ export const en = {
     "Outside work I'm a gamer and an ice-cream addict who wants to travel the world to meet and get involved with different cultures.",
   ],
   skipToContent: "Skip to content",
+  languageLabel: "Language",
   sectionsLabel: "Sections",
   nav: { about: "about", projects: "projects", contact: "contact" },
   sections: { about: "About", projects: "Projects", contact: "Contact" },

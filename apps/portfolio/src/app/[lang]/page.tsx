@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getDictionary } from "@/content/dictionaries";
 import { hasLocale } from "@/content/i18n";
 import { profile, projects, socials } from "@/content/profile";
+import { LanguageSwitcher } from "../language-switcher";
 import { LinkButton } from "../link-button";
 import { ThemeToggle } from "../theme-toggle";
 
@@ -36,7 +37,8 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
       </a>
 
       <header className="relative mx-auto w-full max-w-3xl px-6 pt-20 pb-12 sm:pt-28">
-        <div className="absolute right-6 top-6">
+        <div className="absolute right-6 top-6 flex items-center gap-2">
+          <LanguageSwitcher current={lang} label={t.languageLabel} />
           <ThemeToggle labels={t.theme} />
         </div>
         <p className="font-mono text-sm text-primary">
