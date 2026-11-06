@@ -62,6 +62,28 @@ Gamer touches (keep them few):
 
 No extra fonts, images or background effects.
 
+### Buttons
+
+Action links (project repo, live demos, socials) use
+[`LinkButton`](src/app/link-button.tsx). It is still an `<a>`; inline text links (nav, footer) stay
+plain links.
+
+| Variant | Look | Used for |
+|---|---|---|
+| `primary` | blue-green fill | the main action, e.g. "Source code" |
+| `secondary` (default) | outline on surface | demos, social links |
+| `ghost` | text only, `primary/10` background on hover | low-emphasis actions |
+
+Sizes: `sm` and `md`. Optional `icon`. External links get `target=_blank` + `noopener noreferrer` and
+"(opens in a new tab)" for screen readers. `srLabel` adds context, e.g. which project.
+
+Motion (150 ms, `transform` / color / shadow only, so no layout shift):
+
+- Hover: lifts 1 px and gets the glow.
+- Press: scales to 0.97.
+- The movement is behind `motion-safe:`, so `prefers-reduced-motion` keeps only the color changes.
+- Hover styles only apply on devices that can hover (Tailwind 4 default), so touch screens don't get stuck hover states.
+
 ## Docker
 
 ```bash
