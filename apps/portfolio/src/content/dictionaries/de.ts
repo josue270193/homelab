@@ -11,6 +11,7 @@ export const de: Dictionary = {
     "Privat bin ich Gamer und Eis-Fan und möchte die Welt bereisen, um verschiedene Kulturen kennenzulernen und in sie einzutauchen.",
   ],
   skipToContent: "Zum Inhalt springen",
+  languageLabel: "Sprache",
   sectionsLabel: "Abschnitte",
   nav: { about: "über mich", projects: "projekte", contact: "kontakt" },
   sections: { about: "Über mich", projects: "Projekte", contact: "Kontakt" },

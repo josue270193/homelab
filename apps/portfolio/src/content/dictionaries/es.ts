@@ -11,6 +11,7 @@ export const es: Dictionary = {
     "Fuera del trabajo soy gamer y adicto al helado, y quiero viajar por el mundo para conocer otras culturas e involucrarme con ellas.",
   ],
   skipToContent: "Saltar al contenido",
+  languageLabel: "Idioma",
   sectionsLabel: "Secciones",
   nav: { about: "sobre mí", projects: "proyectos", contact: "contacto" },
   sections: { about: "Sobre mí", projects: "Proyectos", contact: "Contacto" },
