@@ -11,6 +11,7 @@ export const es: Dictionary = {
     "Fuera del trabajo soy gamer y adicto al helado, y quiero viajar por el mundo para conocer otras culturas e involucrarme con ellas.",
   ],
   downloadCv: "Descargar CV",
+  photoAlt: "Foto de Josue Lopez",
   skipToContent: "Saltar al contenido",
   languageLabel: "Idioma",
   sectionsLabel: "Secciones",

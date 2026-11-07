@@ -3,8 +3,13 @@
 
 export const siteUrl = "https://josuedev.dpdns.org";
 
-export const profile = {
+export type Photo = { src: string; file: string; width: number; height: number };
+
+export const profile: { name: string; photo: Photo | null } = {
   name: "Josue Lopez",
+  // GitHub avatar, downloaded at build time by scripts/fetch-avatar.mjs (#88). If the file isn't
+  // there (fetch failed) or photo is null, initials are shown. Alt text: dictionaries (photoAlt).
+  photo: { src: "/profile.webp", file: "public/profile.webp", width: 400, height: 400 },
 };
 
 export type Social = { label: string; href: string; icon: "github" | "linkedin" | "steam" | "email" };

@@ -11,6 +11,7 @@ export const de: Dictionary = {
     "Privat bin ich Gamer und Eis-Fan und möchte die Welt bereisen, um verschiedene Kulturen kennenzulernen und in sie einzutauchen.",
   ],
   downloadCv: "Lebenslauf herunterladen",
+  photoAlt: "Foto von Josue Lopez",
   skipToContent: "Zum Inhalt springen",
   languageLabel: "Sprache",
   sectionsLabel: "Abschnitte",
