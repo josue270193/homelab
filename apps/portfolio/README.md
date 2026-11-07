@@ -57,6 +57,23 @@ the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not locali
 Wording: "Desarrollador" / "Entwickler" rather than "Ingeniero" / "Ingenieur", which are regulated
 titles in Argentina and Germany.
 
+## Profile picture
+
+The intro shows your **GitHub avatar**, downloaded at build time.
+[`scripts/fetch-avatar.mjs`](scripts/fetch-avatar.mjs) runs as npm `prebuild`/`predev`. It fetches
+`github.com/josue270193.png`, crops it to a 400×400 WebP with `sharp` (no EXIF/ICC/XMP), and writes
+`public/profile.webp`, which is git-ignored because it is generated.
+
+- Visitors load it from this site and never contact GitHub, so their IP isn't passed to a third
+  party (GDPR).
+- It updates on every build, i.e. every merge to `main`.
+- If the fetch fails (offline, GitHub down), the build continues and the page shows initials.
+
+`photo` in [`profile.ts`](src/content/profile.ts) sets the file and size; `null` means always
+initials. The alt text is `photoAlt` in the dictionaries. It is served `unoptimized`, since the Next
+image optimizer would need a native `sharp` for the target architecture in the cross-built image, with
+explicit width/height (no layout shift) and `loading="eager"` + `fetchPriority="high"` (above the fold).
+
 ## CV download
 
 The repo is public, so the CV (phone, address…) never goes into git or the image. Put it on the host:

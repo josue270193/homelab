@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getDictionary } from "@/content/dictionaries";
 import { hasLocale } from "@/content/i18n";
 import { profile, projects, socials } from "@/content/profile";
+import { Avatar } from "../avatar";
 import { ContactForm } from "../contact-form";
 import { CvButton } from "../cv-button";
 import { LanguageSwitcher } from "../language-switcher";
@@ -43,14 +44,19 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           <LanguageSwitcher current={lang} label={t.languageLabel} />
           <ThemeToggle labels={t.theme} />
         </div>
-        <p className="font-mono text-sm text-primary">
-          &gt; {t.greeting}<span aria-hidden="true" className="caret">_</span>
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">{profile.name}</h1>
-        <p className="mt-4 text-xl">{t.headline}</p>
-        <p className="mt-1 text-muted">
-          {t.studying} · {t.location}
-        </p>
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
+          <Avatar alt={t.photoAlt} />
+          <div>
+            <p className="font-mono text-sm text-primary">
+              &gt; {t.greeting}<span aria-hidden="true" className="caret">_</span>
+            </p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">{profile.name}</h1>
+            <p className="mt-4 text-xl">{t.headline}</p>
+            <p className="mt-1 text-muted">
+              {t.studying} · {t.location}
+            </p>
+          </div>
+        </div>
         <CvButton label={t.downloadCv} locale={lang} />
         <nav aria-label={t.sectionsLabel} className="mt-8">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm">
