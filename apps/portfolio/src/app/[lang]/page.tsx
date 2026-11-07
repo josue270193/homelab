@@ -3,6 +3,7 @@ import { getDictionary } from "@/content/dictionaries";
 import { hasLocale } from "@/content/i18n";
 import { profile, projects, socials } from "@/content/profile";
 import { ContactForm } from "../contact-form";
+import { CvButton } from "../cv-button";
 import { LanguageSwitcher } from "../language-switcher";
 import { LinkButton } from "../link-button";
 import { ThemeToggle } from "../theme-toggle";
@@ -50,6 +51,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         <p className="mt-1 text-muted">
           {t.studying} · {t.location}
         </p>
+        <CvButton label={t.downloadCv} locale={lang} />
         <nav aria-label={t.sectionsLabel} className="mt-8">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm">
             <li><a className={link} href="#about">{t.nav.about}</a></li>

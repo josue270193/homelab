@@ -168,6 +168,10 @@ services:
       # Bot protection (#77). The form stays off unless both Turnstile keys are set too.
       CONTACT_TURNSTILE_SITE_KEY: ${CONTACT_TURNSTILE_SITE_KEY:-}
       CONTACT_TURNSTILE_SECRET_KEY: ${CONTACT_TURNSTILE_SECRET_KEY:-}
+    # CV PDF (#75): personal data, so never in git or the image. Put cv.pdf (and optionally
+    # cv-es.pdf / cv-de.pdf) in data/portfolio/; replacing a file needs no rebuild or restart.
+    volumes:
+      - ./data/portfolio:/app/cv:ro
     security_opt:
       - no-new-privileges:true
     networks:

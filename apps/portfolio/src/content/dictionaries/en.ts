@@ -9,6 +9,7 @@ export const en = {
     "I love programming: from Spring Boot APIs to React front ends, and lately machine learning with Python.",
     "Outside work I'm a gamer and an ice-cream addict who wants to travel the world to meet and get involved with different cultures.",
   ],
+  downloadCv: "Download CV",
   skipToContent: "Skip to content",
   languageLabel: "Language",
   sectionsLabel: "Sections",
