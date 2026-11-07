@@ -4,7 +4,7 @@ import { hasLocale } from "@/content/i18n";
 
 // CV download (#75). The PDF has personal data and the repo is public, so it is never in the image:
 // data/portfolio/ on the host is mounted read-only at CV_DIR. Replacing the file needs no rebuild.
-// `?lang=es` serves cv-es.pdf when present, else cv.pdf. No file -> 404 (the button hides itself).
+// `?lang=es` serves cv-es.pdf when present, else cv.pdf. No file -> 404; the button probes first.
 
 const CV_DIR = process.env.CV_DIR ?? "/app/cv";
 
@@ -32,17 +32,16 @@ const headers = (suffix: string) => ({
 });
 
 export async function GET(request: Request) {
-  const cv = await findCv(new URL(request.url).searchParams.get("lang"));
+  const params = new URL(request.url).searchParams;
+  const cv = await findCv(params.get("lang"));
+  // `?probe=1`: always 200, so the button's existence check never shows up as a console error (#104).
+  if (params.has("probe")) {
+    return Response.json({ available: !!cv }, { headers: { "Cache-Control": "no-cache" } });
+  }
   if (!cv) return new Response("Not found", { status: 404 });
   try {
     return new Response(new Uint8Array(await readFile(cv.path)), { headers: headers(cv.suffix) });
   } catch {
     return new Response("Not found", { status: 404 });
   }
-}
-
-// Lets the button check for the file without downloading it.
-export async function HEAD(request: Request) {
-  const cv = await findCv(new URL(request.url).searchParams.get("lang"));
-  return new Response(null, cv ? { headers: headers(cv.suffix) } : { status: 404 });
 }

@@ -47,6 +47,9 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
   const [siteKey, setSiteKey] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [invalid, setInvalid] = useState<ContactField[]>([]);
+  // Turnstile is heavy (~220 KB + JS), so it loads on the first interaction with the form, not on
+  // page load (#104). Managed mode usually has a token ready before the visitor finishes typing.
+  const [armed, setArmed] = useState(false);
   const widgetBox = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const captchaToken = useRef("");
@@ -58,9 +61,8 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       .catch(() => setSiteKey(null));
   }, []);
 
-  // Turnstile only loads when the form is actually shown.
   useEffect(() => {
-    if (!siteKey || !widgetBox.current) return;
+    if (!siteKey || !armed || !widgetBox.current) return;
     let cancelled = false;
     loadTurnstile()
       .then((turnstile) => {
@@ -80,7 +82,7 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       if (widgetId.current) window.turnstile?.remove(widgetId.current);
       widgetId.current = null;
     };
-  }, [siteKey, locale]);
+  }, [siteKey, locale, armed]);
 
   if (!siteKey) return null;
 
@@ -153,7 +155,14 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
   ];
 
   return (
-    <form noValidate onSubmit={submit} aria-labelledby="contact-form-title" className="relative mt-10 max-w-xl">
+    <form
+      noValidate
+      onSubmit={submit}
+      onFocus={() => setArmed(true)}
+      onPointerDown={() => setArmed(true)}
+      aria-labelledby="contact-form-title"
+      className="relative mt-10 max-w-xl"
+    >
       <h3 id="contact-form-title" className="text-lg font-semibold">
         {t.title}
       </h3>

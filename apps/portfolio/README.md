@@ -89,7 +89,8 @@ git check-ignore -v data/portfolio/cv.pdf          # proves it can't be committe
 serves `cv-es.pdf` if present, otherwise `cv.pdf`, as an attachment named `Josue-Lopez-CV[-ES].pdf`,
 with `X-Robots-Tag: noindex` and `Cache-Control: no-cache`. **Replacing the file takes effect
 immediately**, with no rebuild or restart. With no file the endpoint returns 404 and the "Download CV"
-button in the header stays hidden (it checks with `HEAD` first, since the page is static).
+button in the header stays hidden. It first calls `GET /api/cv?lang=…&probe=1`, which always answers
+`200 {available}`, so a missing CV never shows up as a browser console error.
 
 ## Contact form
 
@@ -119,7 +120,8 @@ Only then does it send a **plain-text** message to a dedicated Telegram bot
 | `CONTACT_TURNSTILE_SECRET_KEY` | The same widget's secret. Server only. |
 
 - The page is static, so the form asks `GET /api/contact` whether it is enabled (and for the site
-  key) and renders nothing otherwise. The Turnstile script loads only then.
+  key) and renders nothing otherwise. The Turnstile script (~220 KB + JS) loads only on the first
+  focus/pointer interaction with the form, never on page load, to keep LCP and Lighthouse unaffected (#104).
 - Other responses: `413` body too large, `502` Telegram failed (generic message to the visitor; the
   reason goes to the server log without the token), `503` disabled.
 - Without JavaScript the form doesn't appear; the social links remain.
