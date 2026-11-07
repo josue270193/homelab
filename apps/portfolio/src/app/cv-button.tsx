@@ -5,14 +5,15 @@ import type { Locale } from "@/content/i18n";
 import { buttonClass } from "./link-button";
 
 // "Download CV" (#75). The page is static and the PDF lives outside the image, so the button
-// checks /api/cv first and only appears when a CV is actually there.
+// probes /api/cv first and only appears when a CV is actually there.
 export function CvButton({ label, locale }: { label: string; locale: Locale }) {
   const href = `/api/cv?lang=${locale}`;
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
-    fetch(href, { method: "HEAD" })
-      .then((res) => setAvailable(res.ok))
+    fetch(`${href}&probe=1`)
+      .then((res) => (res.ok ? res.json() : { available: false }))
+      .then((data) => setAvailable(data.available === true))
       .catch(() => setAvailable(false));
   }, [href]);
 
