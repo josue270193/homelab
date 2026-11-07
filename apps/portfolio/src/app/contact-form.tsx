@@ -6,8 +6,9 @@ import type { Locale } from "@/content/i18n";
 import { HONEYPOT_FIELD, limits, validateContact, type ContactField } from "@/lib/contact";
 import { buttonClass } from "./link-button";
 
-// Contact form (#76) with bot protection (#77). The page is static, so it asks /api/contact whether
-// the form is enabled (and for the public Turnstile site key) and renders nothing otherwise.
+// Contact form (#76) with bot protection (#77); collapses after a successful send (#106).
+// The page is static, so it asks /api/contact whether the form is enabled (and for the public
+// Turnstile site key) and renders nothing otherwise.
 // Validation runs here for instant, localized feedback, and again on the server, which decides.
 
 type Status = "idle" | "sending" | "sent" | "error" | "captcha" | "rateLimited";
@@ -53,6 +54,10 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
   const widgetBox = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const captchaToken = useRef("");
+  // Focus targets after the form collapses (#106) and after "Send another message" reopens it.
+  const sentHeading = useRef<HTMLHeadingElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const reopened = useRef(false);
 
   useEffect(() => {
     fetch("/api/contact")
@@ -83,6 +88,15 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       widgetId.current = null;
     };
   }, [siteKey, locale, armed]);
+
+  useEffect(() => {
+    if (status === "sent") sentHeading.current?.focus();
+    if (status === "idle" && reopened.current) {
+      reopened.current = false;
+      // Focusing the first field also arms Turnstile again, so the next send gets a fresh check.
+      nameInput.current?.focus();
+    }
+  }, [status]);
 
   if (!siteKey) return null;
 
@@ -121,7 +135,9 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       });
       resetCaptcha();
       if (res.ok) {
-        form.reset();
+        // Collapse (#106): disarming unmounts the Turnstile widget, so "Send another message" starts
+        // with a brand-new verification instead of a widget that still shows "success".
+        setArmed(false);
         setStatus("sent");
         return;
       }
@@ -150,9 +166,28 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
     "aria-invalid": invalid.includes(name) || undefined,
     "aria-describedby": invalid.includes(name) ? `${name}-error` : undefined,
   });
-  const message = { sent: t.success, error: t.error, captcha: t.captcha, rateLimited: t.rateLimited }[
-    status as "sent" | "error" | "captcha" | "rateLimited"
+  const message = { error: t.error, captcha: t.captcha, rateLimited: t.rateLimited }[
+    status as "error" | "captcha" | "rateLimited"
   ];
+
+  if (status === "sent") {
+    const sendAnother = () => {
+      reopened.current = true;
+      setInvalid([]);
+      setStatus("idle");
+    };
+    return (
+      <div className="fade-in hud-corners mt-10 max-w-xl rounded-card border border-border bg-surface p-6">
+        <h3 ref={sentHeading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+          {t.sentTitle}
+        </h3>
+        <p className="mt-2 leading-7 text-muted">{t.success}</p>
+        <button type="button" onClick={sendAnother} className={`${buttonClass("secondary", "sm")} mt-4`}>
+          {t.sendAnother}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -161,7 +196,7 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       onFocus={() => setArmed(true)}
       onPointerDown={() => setArmed(true)}
       aria-labelledby="contact-form-title"
-      className="relative mt-10 max-w-xl"
+      className="fade-in relative mt-10 max-w-xl"
     >
       <h3 id="contact-form-title" className="text-lg font-semibold">
         {t.title}
@@ -176,7 +211,7 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium">
           {t.name}
-          <input name="name" autoComplete="name" required maxLength={limits.name} className={field} {...a11y("name")} />
+          <input ref={nameInput} name="name" autoComplete="name" required maxLength={limits.name} className={field} {...a11y("name")} />
           {error("name")}
         </label>
         <label className="block text-sm font-medium">
@@ -212,7 +247,7 @@ export function ContactForm({ t, locale }: { t: Dictionary["contactForm"]; local
         <button type="submit" disabled={status === "sending"} className={`${buttonClass("primary")} disabled:opacity-60`}>
           {status === "sending" ? t.sending : t.send}
         </button>
-        <p role="status" aria-live="polite" className={`text-sm ${status === "sent" ? "text-primary" : "text-danger"}`}>
+        <p role="status" aria-live="polite" className="text-sm text-danger">
           {message ?? ""}
         </p>
       </div>

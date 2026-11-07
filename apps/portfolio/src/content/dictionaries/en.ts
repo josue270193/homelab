@@ -29,6 +29,8 @@ export const en = {
     message: "Message",
     send: "Send message",
     sending: "Sending…",
+    sentTitle: "Message sent",
+    sendAnother: "Send another message",
     success: "Thanks! Your message is on its way, I'll get back to you soon.",
     error: "Sorry, the message couldn't be sent. Please try again later or reach me through the links above.",
     captcha: "Please complete the verification and try again.",

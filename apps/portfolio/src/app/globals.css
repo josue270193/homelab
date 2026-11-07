@@ -146,3 +146,18 @@ body {
     animation: none;
   }
 }
+
+/* Contact form <-> "message sent" panel swap (#106). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    translate: 0 0.25rem;
+  }
+}
+
+@utility fade-in {
+  animation: fade-in 200ms ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
