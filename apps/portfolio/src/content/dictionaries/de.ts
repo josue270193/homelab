@@ -30,6 +30,8 @@ export const de: Dictionary = {
     sending: "Wird gesendet…",
     success: "Danke! Deine Nachricht ist unterwegs, ich melde mich bald.",
     error: "Die Nachricht konnte leider nicht gesendet werden. Versuch es später noch einmal oder schreib mir über die Links oben.",
+    captcha: "Bitte schließ die Überprüfung ab und versuch es erneut.",
+    rateLimited: "Zu viele Nachrichten von deiner Verbindung. Bitte versuch es in einer Stunde erneut.",
     invalid: {
       name: "Bitte gib deinen Namen ein (bis zu 100 Zeichen).",
       email: "Bitte gib eine gültige E-Mail-Adresse ein.",

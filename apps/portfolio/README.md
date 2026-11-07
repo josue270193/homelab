@@ -60,22 +60,38 @@ titles in Argentina and Germany.
 ## Contact form
 
 Below the social links, the form (name, email, message) posts to `POST /api/contact`. That endpoint
-validates again on the server ([`src/lib/contact.ts`](src/lib/contact.ts): name ≤ 100, valid email
-≤ 200, message 10–2000 characters, control characters stripped) and sends a **plain-text** message to
-a dedicated Telegram bot ([`src/lib/telegram.ts`](src/lib/telegram.ts), 5 s timeout).
+checks, in this order:
+
+1. **Rate limit**: 5 attempts per hour per client IP (`CF-Connecting-IP`, which Cloudflare sets and
+   overwrites). The 6th attempt gets `429` with `Retry-After`. The counter is in memory, so a restart
+   resets it ([`src/lib/rate-limit.ts`](src/lib/rate-limit.ts)).
+2. **Honeypot**: a hidden `website` field. If a bot fills it, the request gets a fake `200 {ok:true}`
+   and nothing is sent.
+3. **Validation** ([`src/lib/contact.ts`](src/lib/contact.ts)): name ≤ 100, valid email ≤ 200,
+   message 10–2000 characters, control characters stripped.
+4. **Cloudflare Turnstile**: the widget's token is verified server-side with `siteverify`
+   ([`src/lib/turnstile.ts`](src/lib/turnstile.ts)). Missing, invalid, expired or reused tokens, or
+   any error, give `400 {error:"captcha"}` (fails closed).
+
+Only then does it send a **plain-text** message to a dedicated Telegram bot
+([`src/lib/telegram.ts`](src/lib/telegram.ts), 5 s timeout).
 
 | Variable (`.env`) | |
 |---|---|
-| `CONTACT_ENABLED` | `true` to show and accept the form. Default `false`. **Keep it `false` in production until #77** (Turnstile, honeypot, rate limit). |
+| `CONTACT_ENABLED` | `true` to show and accept the form. Default `false`. The form only turns on if the four keys below are set too. |
 | `CONTACT_TELEGRAM_BOT_TOKEN` | Token of a bot made for this, via @BotFather (not Uptime Kuma's). Secret; server only. |
 | `CONTACT_TELEGRAM_CHAT_ID` | Your numeric Telegram user id, e.g. from @userinfobot. Press **Start** in the new bot once, or it can't message you. |
+| `CONTACT_TURNSTILE_SITE_KEY` | From Cloudflare dashboard → Turnstile → Add widget (hostname = your domain). Public: sent to the browser. |
+| `CONTACT_TURNSTILE_SECRET_KEY` | The same widget's secret. Server only. |
 
-- The page is static, so the form asks `GET /api/contact` whether it is enabled and renders nothing
-  otherwise.
-- Responses: `400` invalid (with the field names), `413` body too large, `502` Telegram failed
-  (generic message to the visitor; the reason goes to the server log without the token), `503`
-  disabled.
+- The page is static, so the form asks `GET /api/contact` whether it is enabled (and for the site
+  key) and renders nothing otherwise. The Turnstile script loads only then.
+- Other responses: `413` body too large, `502` Telegram failed (generic message to the visitor; the
+  reason goes to the server log without the token), `503` disabled.
 - Without JavaScript the form doesn't appear; the social links remain.
+- Local testing: use Cloudflare's test keys, which work on any host. Site key `1x00000000000000000000AA`
+  with secret `1x0000000000000000000000000000000AA` always passes; secret
+  `2x0000000000000000000000000000000AA` always fails.
 
 ## Design system
 

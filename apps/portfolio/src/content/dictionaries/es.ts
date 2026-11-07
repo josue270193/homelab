@@ -30,6 +30,8 @@ export const es: Dictionary = {
     sending: "Enviando…",
     success: "¡Gracias! Tu mensaje está en camino, te responderé pronto.",
     error: "Lo siento, no se pudo enviar el mensaje. Inténtalo más tarde o escríbeme por los enlaces de arriba.",
+    captcha: "Completa la verificación e inténtalo de nuevo.",
+    rateLimited: "Demasiados mensajes desde tu conexión. Inténtalo de nuevo en una hora.",
     invalid: {
       name: "Escribe tu nombre (hasta 100 caracteres).",
       email: "Escribe un email válido.",
