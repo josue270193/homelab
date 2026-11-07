@@ -57,6 +57,23 @@ the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not locali
 Wording: "Desarrollador" / "Entwickler" rather than "Ingeniero" / "Ingenieur", which are regulated
 titles in Argentina and Germany.
 
+## CV download
+
+The repo is public, so the CV (phone, address…) never goes into git or the image. Put it on the host:
+
+```bash
+mkdir -p data/portfolio
+cp ~/path/to/your-cv.pdf data/portfolio/cv.pdf     # optional: cv-es.pdf, cv-de.pdf per language
+chmod 644 data/portfolio/*.pdf                     # Linux: the container runs as uid 1000 and must read it
+git check-ignore -v data/portfolio/cv.pdf          # proves it can't be committed (data/ is ignored)
+```
+
+`compose.yaml` mounts `data/portfolio/` **read-only** at `/app/cv` (`CV_DIR`). `GET /api/cv?lang=es`
+serves `cv-es.pdf` if present, otherwise `cv.pdf`, as an attachment named `Josue-Lopez-CV[-ES].pdf`,
+with `X-Robots-Tag: noindex` and `Cache-Control: no-cache`. **Replacing the file takes effect
+immediately**, with no rebuild or restart. With no file the endpoint returns 404 and the "Download CV"
+button in the header stays hidden (it checks with `HEAD` first, since the page is static).
+
 ## Contact form
 
 Below the social links, the form (name, email, message) posts to `POST /api/contact`. That endpoint

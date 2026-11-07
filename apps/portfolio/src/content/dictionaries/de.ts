@@ -10,6 +10,7 @@ export const de: Dictionary = {
     "Ich liebe Programmieren: von Spring-Boot-APIs bis zu React-Frontends und neuerdings Machine Learning mit Python.",
     "Privat bin ich Gamer und Eis-Fan und möchte die Welt bereisen, um verschiedene Kulturen kennenzulernen und in sie einzutauchen.",
   ],
+  downloadCv: "Lebenslauf herunterladen",
   skipToContent: "Zum Inhalt springen",
   languageLabel: "Sprache",
   sectionsLabel: "Abschnitte",
