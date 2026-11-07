@@ -124,6 +124,9 @@ Only then does it send a **plain-text** message to a dedicated Telegram bot
   focus/pointer interaction with the form, never on page load, to keep LCP and Lighthouse unaffected (#104).
 - Other responses: `413` body too large, `502` Telegram failed (generic message to the visitor; the
   reason goes to the server log without the token), `503` disabled.
+- After a successful send the form **collapses** into a "Message sent" panel, and focus moves to its
+  heading. "Send another message" reopens an empty form and focuses Name, which loads a **new** Turnstile
+  widget, so every message gets its own verification. Errors keep the form open with the text (#106).
 - Without JavaScript the form doesn't appear; the social links remain.
 - Local testing: use Cloudflare's test keys, which work on any host. Site key `1x00000000000000000000AA`
   with secret `1x0000000000000000000000000000000AA` always passes; secret

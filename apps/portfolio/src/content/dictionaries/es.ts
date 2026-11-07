@@ -30,6 +30,8 @@ export const es: Dictionary = {
     message: "Mensaje",
     send: "Enviar mensaje",
     sending: "Enviando…",
+    sentTitle: "Mensaje enviado",
+    sendAnother: "Enviar otro mensaje",
     success: "¡Gracias! Tu mensaje está en camino, te responderé pronto.",
     error: "Lo siento, no se pudo enviar el mensaje. Inténtalo más tarde o escríbeme por los enlaces de arriba.",
     captcha: "Completa la verificación e inténtalo de nuevo.",

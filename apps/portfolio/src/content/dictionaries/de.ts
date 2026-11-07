@@ -30,6 +30,8 @@ export const de: Dictionary = {
     message: "Nachricht",
     send: "Nachricht senden",
     sending: "Wird gesendet…",
+    sentTitle: "Nachricht gesendet",
+    sendAnother: "Weitere Nachricht senden",
     success: "Danke! Deine Nachricht ist unterwegs, ich melde mich bald.",
     error: "Die Nachricht konnte leider nicht gesendet werden. Versuch es später noch einmal oder schreib mir über die Links oben.",
     captcha: "Bitte schließ die Überprüfung ab und versuch es erneut.",
