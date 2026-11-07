@@ -161,6 +161,10 @@ services:
     logging: *default-logging
     environment:
       TZ: ${TZ:-UTC}
+      # Contact form -> Telegram (#76). Off unless explicitly enabled and the bot is configured.
+      CONTACT_ENABLED: ${CONTACT_ENABLED:-false}
+      CONTACT_TELEGRAM_BOT_TOKEN: ${CONTACT_TELEGRAM_BOT_TOKEN:-}
+      CONTACT_TELEGRAM_CHAT_ID: ${CONTACT_TELEGRAM_CHAT_ID:-}
     security_opt:
       - no-new-privileges:true
     networks:

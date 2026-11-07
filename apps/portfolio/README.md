@@ -57,6 +57,26 @@ the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not locali
 Wording: "Desarrollador" / "Entwickler" rather than "Ingeniero" / "Ingenieur", which are regulated
 titles in Argentina and Germany.
 
+## Contact form
+
+Below the social links, the form (name, email, message) posts to `POST /api/contact`. That endpoint
+validates again on the server ([`src/lib/contact.ts`](src/lib/contact.ts): name ≤ 100, valid email
+≤ 200, message 10–2000 characters, control characters stripped) and sends a **plain-text** message to
+a dedicated Telegram bot ([`src/lib/telegram.ts`](src/lib/telegram.ts), 5 s timeout).
+
+| Variable (`.env`) | |
+|---|---|
+| `CONTACT_ENABLED` | `true` to show and accept the form. Default `false`. **Keep it `false` in production until #77** (Turnstile, honeypot, rate limit). |
+| `CONTACT_TELEGRAM_BOT_TOKEN` | Token of a bot made for this, via @BotFather (not Uptime Kuma's). Secret; server only. |
+| `CONTACT_TELEGRAM_CHAT_ID` | Your numeric Telegram user id, e.g. from @userinfobot. Press **Start** in the new bot once, or it can't message you. |
+
+- The page is static, so the form asks `GET /api/contact` whether it is enabled and renders nothing
+  otherwise.
+- Responses: `400` invalid (with the field names), `413` body too large, `502` Telegram failed
+  (generic message to the visitor; the reason goes to the server log without the token), `503`
+  disabled.
+- Without JavaScript the form doesn't appear; the social links remain.
+
 ## Design system
 
 Minimalist, with a light gamer/HUD touch and a blue-green primary color. The tokens are defined once

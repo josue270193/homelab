@@ -36,12 +36,16 @@ type Props = {
   rel?: string;
 };
 
+// Same look for a real <button> (e.g. the contact form's submit).
+export const buttonClass = (variant: keyof typeof variants = "secondary", size: keyof typeof sizes = "md") =>
+  `${base} ${variants[variant]} ${sizes[size]}`;
+
 export function LinkButton({ href, children, variant = "secondary", size = "md", icon, srLabel, newTabHint, rel }: Props) {
   const external = href.startsWith("http");
   return (
     <a
       href={href}
-      className={`${base} ${variants[variant]} ${sizes[size]}`}
+      className={buttonClass(variant, size)}
       {...(external && { target: "_blank", rel: ["noopener noreferrer", rel].filter(Boolean).join(" ") })}
     >
       {icon && <Icon name={icon} />}

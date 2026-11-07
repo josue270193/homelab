@@ -20,6 +20,7 @@
   --border: #d5e0e1;
   --primary: #0a7480;
   --primary-fg: #ffffff;
+  --danger: #b42318;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +32,7 @@
     --border: #1f2d31;
     --primary: #2cd5c4;
     --primary-fg: #04211f;
+  --danger: #ff8a80;
   }
 }
 
@@ -43,6 +45,7 @@
   --border: #1f2d31;
   --primary: #2cd5c4;
   --primary-fg: #04211f;
+  --danger: #ff8a80;
 }
 
 :root[data-theme="light"] {
@@ -69,6 +72,7 @@
   --color-border: var(--border);
   --color-primary: var(--primary);
   --color-primary-fg: var(--primary-fg);
+  --color-danger: var(--danger); /* form errors only */
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

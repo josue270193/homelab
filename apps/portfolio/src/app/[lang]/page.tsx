@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getDictionary } from "@/content/dictionaries";
 import { hasLocale } from "@/content/i18n";
 import { profile, projects, socials } from "@/content/profile";
+import { ContactForm } from "../contact-form";
 import { LanguageSwitcher } from "../language-switcher";
 import { LinkButton } from "../link-button";
 import { ThemeToggle } from "../theme-toggle";
@@ -131,6 +132,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               </li>
             ))}
           </ul>
+          <ContactForm t={t.contactForm} locale={lang} />
         </section>
       </main>
 
