@@ -27,3 +27,9 @@ export function validateContact(
 export function formatContactMessage(input: ContactInput, locale: string): string {
   return `📬 Portfolio contact (${locale})\nFrom: ${input.name} <${input.email}>\n\n${input.message}`;
 }
+
+// Honeypot (#77): a field people never see or fill. Anything in it means a bot filled every input.
+export const HONEYPOT_FIELD = "website";
+
+export const isHoneypotFilled = (raw: unknown) =>
+  !!raw && typeof raw === "object" && !!String((raw as Record<string, unknown>)[HONEYPOT_FIELD] ?? "").trim();
