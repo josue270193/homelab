@@ -147,6 +147,77 @@ body {
   }
 }
 
+/*
+ * Background animation (#108): two soft primary-tinted glows drifting slowly behind
+ * the content. Radial gradients are already soft, so no filter: blur() (expensive
+ * full-layer repaint); only translate/scale are animated, which runs on the
+ * compositor. The layer is fixed and behind everything (no layout shift) and the
+ * tint is low enough that text contrast on --bg is unaffected. Uses var(--primary),
+ * so it adapts to both themes. Static at prefers-reduced-motion; browsers stop
+ * advancing CSS animations while the tab is hidden, so it costs nothing off-screen.
+ */
+@keyframes glow-drift-a {
+  from {
+    translate: -8% -6%;
+    scale: 1;
+  }
+  to {
+    translate: 10% 8%;
+    scale: 1.15;
+  }
+}
+
+@keyframes glow-drift-b {
+  from {
+    translate: 6% 8%;
+    scale: 1.1;
+  }
+  to {
+    translate: -10% -6%;
+    scale: 0.95;
+  }
+}
+
+@utility background-animation {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  pointer-events: none;
+}
+
+@utility background-glow {
+  position: absolute;
+  width: 42rem;
+  height: 42rem;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    color-mix(in oklab, var(--primary) 12%, transparent),
+    transparent 70%
+  );
+}
+
+@utility background-glow-a {
+  top: -12rem;
+  left: -10rem;
+  animation: glow-drift-a 32s ease-in-out infinite alternate;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@utility background-glow-b {
+  right: -12rem;
+  bottom: -14rem;
+  animation: glow-drift-b 40s ease-in-out infinite alternate;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 /* Contact form <-> "message sent" panel swap (#106). */
 @keyframes fade-in {
   from {
