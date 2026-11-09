@@ -149,6 +149,11 @@ variants. A theme switch is just a new set of variables.
 | `--primary` | `text-primary`, `bg-primary`, `outline-primary` | `#0a7480` | `#2cd5c4` | accents, links, focus |
 | `--primary-fg` | `text-primary-fg` | `#ffffff` | `#04211f` | text on `bg-primary` |
 
+Animated background (#108): two soft `--primary`-tinted radial glows drift slowly behind the
+content (`background-animation` / `background-glow*` utilities, pure CSS). Only `translate`/`scale`
+are animated (compositor-only), the layer is fixed behind everything, and it is static at
+`prefers-reduced-motion: reduce`.
+
 Contrast (WCAG 2.x; AA needs 4.5:1 for body text, 3:1 for large text and UI):
 
 | Pair | Light | Dark |
