@@ -25,32 +25,34 @@ Playwright can't drive Zen (it needs its own Juggler-patched Firefox), so we use
 [firefox-devtools-mcp](https://github.com/mozilla/firefox-devtools-mcp), which works with any
 Firefox 100+ binary over Marionette + WebDriver BiDi.
 
-It launches `/opt/zen-browser-bin/zen-bin` (the `zen-browser-bin` AUR package) with a
-**dedicated profile** in `~/.local/share/zen-mcp`, separate from your everyday Zen profile.
-Only what you sign in to in that profile is reachable by the agent. Change `--firefox-path`
-in `.mcp.json` if Zen lives elsewhere (on macOS: `/Applications/Zen.app/Contents/MacOS/zen`).
-
-### Try it
-
-1. Restart Claude Code in this repo and approve the `firefox` server.
-2. Run `/mcp`: `firefox` should show as connected.
-3. Ask: "open https://example.com in the browser and tell me the title".
-   A Zen window opens and the agent reports "Example Domain".
-
-Add `"--headless"` to the args to run without a window.
-
-### Using your real Zen session instead (optional)
-
-To reuse the logins of a running Zen, start Zen with remote control enabled and attach:
+It **attaches to a Zen you already have running** (`--connect-existing`) over Marionette on
+port 2828, instead of launching its own browser. Start Zen with remote control enabled first:
 
 ```sh
 zen-browser --marionette --remote-debugging-port
-# then in .mcp.json args replace the --firefox-path/--profile-path pair with:
-#   "--connect-existing", "--marionette-port", "2828"
 ```
 
-The agent then sees everything that browser can reach (cookies, saved sessions), so prefer
-the dedicated profile.
+> The agent sees everything that Zen session can reach: open tabs, cookies, logged-in
+> sites. Keep sensitive sessions in another browser, or use the dedicated profile below.
+
+### Try it
+
+1. Start Zen as above, then restart Claude Code in this repo and approve the `firefox` server.
+2. Run `/mcp`: `firefox` should show as connected.
+3. Ask: "how many tabs are open?". The agent lists the tabs of your running Zen.
+
+### Using a dedicated profile instead (optional)
+
+To keep the agent away from your everyday logins, have the MCP launch its own Zen with a
+separate profile. In `.mcp.json` args, replace `"--connect-existing", "--marionette-port", "2828"` with:
+
+```json
+"--firefox-path", "/opt/zen-browser-bin/zen-bin",
+"--profile-path", "${HOME}/.local/share/zen-mcp"
+```
+
+`/opt/zen-browser-bin/zen-bin` is the `zen-browser-bin` AUR package. On macOS use
+`/Applications/Zen.app/Contents/MacOS/zen`. Add `"--headless"` to run without a window.
 
 ## Notes
 

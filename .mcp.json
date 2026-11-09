@@ -13,10 +13,9 @@
       "args": [
         "-y",
         "@mozilla/firefox-devtools-mcp@0.10.7",
-        "--firefox-path",
-        "/opt/zen-browser-bin/zen-bin",
-        "--profile-path",
-        "${HOME}/.local/share/zen-mcp",
+        "--connect-existing",
+        "--marionette-port",
+        "2828",
         "--viewport",
         "1280x720"
       ],
