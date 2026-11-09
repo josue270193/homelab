@@ -5,6 +5,7 @@ import { getDictionary } from "@/content/dictionaries";
 import { defaultLocale, hasLocale, locales } from "@/content/i18n";
 import { profile, siteUrl } from "@/content/profile";
 import { themeColors, themeScript } from "../theme-script";
+import { BackgroundAnimation } from "../background";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -65,7 +66,10 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <BackgroundAnimation />
+        {children}
+      </body>
     </html>
   );
 }
