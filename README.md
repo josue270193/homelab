@@ -18,6 +18,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - [docs/mcp.md](docs/mcp.md) – MCP servers for Claude Code (GitHub, Firefox/Zen) and the `GITHUB_PAT` they need.
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
+- [docs/host.md](docs/host.md) – CachyOS production PC: Docker + Compose install, enabled on boot.
 - [docs/domain.md](docs/domain.md) – `josuedev.dpdns.org` on Cloudflare: nameservers, **manual renewal before 2027-11-02**.
 - [apps/api](apps/api/README.md) – Spring Boot API (Java 21): build, run, image layout.
 - [apps/portfolio](apps/portfolio/README.md) – portfolio website (Next.js), epic E9.
