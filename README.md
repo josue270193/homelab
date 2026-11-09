@@ -15,6 +15,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 
 - [ROADMAP.md](ROADMAP.md) – epics, issues and acceptance criteria.
 - [CLAUDE.md](CLAUDE.md) – working agreement for Claude Code (branching, rules).
+- [docs/mcp.md](docs/mcp.md) – MCP servers for Claude Code (GitHub, Firefox/Zen) and the `GITHUB_PAT` they need.
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
 - [docs/domain.md](docs/domain.md) – `josuedev.dpdns.org` on Cloudflare: nameservers, **manual renewal before 2027-11-02**.

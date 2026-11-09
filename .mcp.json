@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}"
+      }
+    },
+    "firefox": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mozilla/firefox-devtools-mcp@0.10.7",
+        "--firefox-path",
+        "/opt/zen-browser-bin/zen-bin",
+        "--profile-path",
+        "${HOME}/.local/share/zen-mcp",
+        "--viewport",
+        "1280x720"
+      ],
+      "env": {}
+    }
+  }
+}
