@@ -157,6 +157,8 @@ Code in `apps/portfolio/` (monorepo, no separate repo). Next.js + React + TypeSc
   AC: Cloudflare Turnstile verified server-side, honeypot, per-IP rate limit; then enable in production.
 - **9.9 (Optional) Email delivery** (#78)
   AC: transactional email with SPF/DKIM in Cloudflare DNS.
+- **9.10 Background animation** (#108)
+  AC: subtle lightweight animation; respects `prefers-reduced-motion`; no Lighthouse regression.
 
 ## Later (not planned yet)
 - Custom Spring Boot control panel replacing Dockge for routing config.
