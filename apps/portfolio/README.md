@@ -150,9 +150,12 @@ variants. A theme switch is just a new set of variables.
 | `--primary-fg` | `text-primary-fg` | `#ffffff` | `#04211f` | text on `bg-primary` |
 
 Animated background (#108): two soft `--primary`-tinted radial glows drift slowly behind the
-content (`background-animation` / `background-glow*` utilities, pure CSS). Only `translate`/`scale`
-are animated (compositor-only), the layer is fixed behind everything, and it is static at
-`prefers-reduced-motion: reduce`.
+content (`background-animation` / `background-glow*` utilities, pure CSS), under a faint
+matrix-style digital rain (`background-rain.tsx`, a client canvas of half-width katakana and
+digits at half resolution, blurred and dimmed per theme via `--rain-opacity`). The glows animate
+only `translate`/`scale` (compositor-only), both layers are fixed behind everything, rAF/CSS
+animation pauses in background tabs, and everything is static at `prefers-reduced-motion: reduce`.
+The rain color is the `--primary` token, so the theme toggle recolors it live.
 
 Contrast (WCAG 2.x; AA needs 4.5:1 for body text, 3:1 for large text and UI):
 

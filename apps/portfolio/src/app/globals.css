@@ -21,6 +21,7 @@
   --primary: #0a7480;
   --primary-fg: #ffffff;
   --danger: #b42318;
+  --rain-opacity: 0.22;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,6 +34,7 @@
     --primary: #2cd5c4;
     --primary-fg: #04211f;
   --danger: #ff8a80;
+  --rain-opacity: 0.35;
   }
 }
 
@@ -46,6 +48,7 @@
   --primary: #2cd5c4;
   --primary-fg: #04211f;
   --danger: #ff8a80;
+  --rain-opacity: 0.35;
 }
 
 :root[data-theme="light"] {
@@ -216,6 +219,22 @@ body {
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
+}
+
+/*
+ * Matrix rain layer (#108): the canvas is painted at half resolution by
+ * background-rain.tsx (soft glyphs, half the pixels) and blurred a little more
+ * here so it reads as an out-of-focus texture behind the content. Dimmed per
+ * theme via --rain-opacity; the glyph color is --primary, so the theme toggle
+ * recolors it live.
+ */
+@utility background-rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: var(--rain-opacity);
+  filter: blur(1.5px);
 }
 
 /* Contact form <-> "message sent" panel swap (#106). */
