@@ -23,7 +23,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - Every issue has acceptance criteria; it is closed only when they pass.
 - Branch per issue: `feat/<issue-number>-short-name`, PR closes the issue.
 - Secrets live in `.env` (git-ignored); `.env.example` is committed.
-- Labels: `epic:E0`…`epic:E9`, `type:infra`, `type:app`, `type:docs`.
+- Labels: `epic:E0`…`epic:E10`, `type:infra`, `type:app`, `type:docs`.
 
 ---
 
@@ -159,8 +159,32 @@ Code in `apps/portfolio/` (monorepo, no separate repo). Next.js + React + TypeSc
   AC: transactional email with SPF/DKIM in Cloudflare DNS.
 - **9.10 Background animation** (#108)
   AC: subtle lightweight animation; respects `prefers-reduced-motion`; no Lighthouse regression.
+- **9.11 Alien monster favicon 👾** (#117)
+  AC: emoji icon generated at build time (not dependent on the visitor's font); `apple-icon`; verified live.
+- **9.12 Indexable by AI/LLM search** (#118)
+  AC: AI crawlers allowed in `robots.txt`; `/llms.txt`; JSON-LD `Person`; Cloudflare AI-bot blocking checked.
+
+## E10 – Self-hosted services
+Goal: the code, email, photos and files live on the homelab instead of third-party services.
+GitHub stays as a public push mirror. Photos and files are private (Tailscale only).
+
+- **10.1 Forgejo** (#119)
+  AC: `git.<domain>` public via Traefik; DB on `internal`; no open registration; SSH only over Tailscale.
+- **10.2 Move the repo to Forgejo** (#120)
+  AC: history, issues and PRs migrated; push mirror to GitHub; CLAUDE.md/README updated.
+- **10.3 CI on Forgejo Actions** (#121)
+  AC: runner with its own DinD (never the host socket); multi-arch builds; registry decided.
+- **10.4 Deploy from Forgejo** (#122)
+  AC: PR → image → `deploy.sh` → live without GitHub.
+- **10.5 Own email address** (#123)
+  AC: Cloudflare Email Routing + SMTP relay for sending; SPF/DKIM/DMARC; not in spam. No mail server (CGNAT).
+- **10.6 Photos: Immich** (#124)
+  AC: Tailscale only; library on existing free space for now; phone backup works; no sole copies before 10.8.
+- **10.7 Files** (#125)
+  AC: Nextcloud vs Seafile decided; Tailscale only; desktop + phone sync.
+- **10.8 Backups for user data** (#126)
+  AC: encrypted offsite (restic), daily, alerts; restore tested.
 
 ## Later (not planned yet)
 - Custom Spring Boot control panel replacing Dockge for routing config.
 - Ollama for local LLM demos (depends on PC GPU).
-- Off-site backups.
