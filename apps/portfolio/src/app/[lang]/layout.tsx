@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
+import { buildJsonLd, jsonForScript } from "@/content/ai";
 import { getDictionary } from "@/content/dictionaries";
 import { defaultLocale, hasLocale, locales } from "@/content/i18n";
-import { profile, siteUrl } from "@/content/profile";
+import { profile, projects, siteUrl, socials } from "@/content/profile";
 import { themeColors, themeScript } from "../theme-script";
 import { BackgroundAnimation } from "../background";
 import "../globals.css";
@@ -56,6 +57,12 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children, params }: LayoutProps<"/[lang]">) {
   const { lang } = await params;
   if (!hasLocale(lang)) notFound();
+  // schema.org Person + WebSite for search engines and AI tools (#118).
+  const jsonLd = buildJsonLd(
+    { siteUrl, name: profile.name, photoSrc: profile.photo?.src ?? null, socials, projects },
+    getDictionary(lang),
+    lang,
+  );
   return (
     <html
       lang={lang}
@@ -65,6 +72,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonForScript(jsonLd) }} />
       </head>
       <body className="min-h-full flex flex-col">
         <BackgroundAnimation />
