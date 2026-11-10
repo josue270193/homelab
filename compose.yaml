@@ -310,7 +310,7 @@ services:
     networks:
       - internal
 
-  # Daily pg_dump of the homelab DB into ./backups/postgres (git-ignored), 7-day retention.
+  # Daily pg_dump of every app DB (homelab, forgejo) into ./backups/postgres (git-ignored), 7-day retention.
   # Same image as postgres so pg_dump always matches the server version.
   postgres-backup:
     image: postgres:18.6-alpine3.24
@@ -323,6 +323,7 @@ services:
       PGDATABASE: ${POSTGRES_DB:-homelab}
       PGUSER: ${POSTGRES_USER:-homelab}
       PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      BACKUP_DATABASES: ${POSTGRES_DB:-homelab} forgejo
       BACKUP_TIME: ${BACKUP_TIME:-03:00}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
     volumes:
@@ -343,8 +344,90 @@ services:
     networks:
       - internal
 
+  # Creates the `forgejo` database + role on the shared Postgres, then exits (idempotent, #119).
+  forgejo-db-init:
+    image: postgres:18.6-alpine3.24
+    restart: "no"
+    logging: *default-logging
+    entrypoint: ["/bin/sh", "/pg-create-db.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-homelab}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DB: forgejo
+      APP_USER: forgejo
+      APP_PASSWORD: ${FORGEJO_DB_PASSWORD:?set FORGEJO_DB_PASSWORD in .env}
+    volumes:
+      - ./scripts/pg-create-db.sh:/pg-create-db.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  # Forgejo: self-hosted git (E10, #119). Web UI public at git.<domain>; git over SSH only via
+  # Tailscale (serve.json port 22 -> 2222). Config comes from FORGEJO__section__KEY variables; the
+  # generated secrets live in data/forgejo/custom/conf/app.ini. Docs: docs/forgejo.md.
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:17.0.1-rootless
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: postgres:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD:?set FORGEJO_DB_PASSWORD in .env}
+      FORGEJO__server__DOMAIN: git.${DOMAIN:-localhost}
+      FORGEJO__server__ROOT_URL: https://git.${DOMAIN:-localhost}/
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__START_SSH_SERVER: "true"
+      FORGEJO__server__SSH_LISTEN_PORT: "2222"
+      FORGEJO__server__SSH_PORT: "22"
+      # Tailscale name of the `tailscale` service, e.g. homelab-db.<tailnet>.ts.net (shown in clone URLs).
+      FORGEJO__server__SSH_DOMAIN: ${FORGEJO_SSH_DOMAIN:-homelab-db}
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__service__REQUIRE_SIGNIN_VIEW: "false"
+      FORGEJO__service__DEFAULT_KEEP_EMAIL_PRIVATE: "true"
+      FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
+      FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
+      FORGEJO__session__COOKIE_SECURE: "true"
+      # Behind Traefik + Cloudflare: trust X-Forwarded-For from the Docker networks for client IPs.
+      FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES: 172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+    volumes:
+      - ./data/forgejo:/var/lib/gitea
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:3000/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      forgejo-db-init:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # Traefik routes here; egress for mirrors (10.2)
+      - internal   # reach postgres
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.forgejo.rule: Host(`git.localhost`)
+      traefik.http.routers.forgejo.entrypoints: web
+      traefik.http.routers.forgejo.service: forgejo
+      traefik.http.routers.forgejo-public.rule: Host(`git.${DOMAIN:-localhost}`)
+      traefik.http.routers.forgejo-public.entrypoints: public
+      traefik.http.routers.forgejo-public.service: forgejo
+      traefik.http.services.forgejo.loadbalancer.server.port: "3000"
+
   # Private access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY the ports in
-  # tailscale/serve.json: 5432 postgres, 5001 Dockge, 3001 Uptime Kuma, 8080 Traefik dashboard.
+  # tailscale/serve.json: 5432 postgres, 5001 Dockge, 3001 Uptime Kuma, 8080 Traefik dashboard,
+  # 22 Forgejo SSH.
   # Nothing is published on the host or the internet.
   # Userspace networking: no NET_ADMIN / /dev/net/tun needed.
   tailscale:
