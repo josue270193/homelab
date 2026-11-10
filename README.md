@@ -17,6 +17,7 @@ Internet ──> Cloudflare (DNS, TLS, Access)
 - [CLAUDE.md](CLAUDE.md) – working agreement for Claude Code (branching, rules).
 - [docs/mcp.md](docs/mcp.md) – MCP servers for Claude Code (GitHub, Firefox/Zen) and the `GITHUB_PAT` they need.
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
+- [docs/forgejo.md](docs/forgejo.md) – Forgejo (self-hosted git, E10): first admin, SSH over Tailscale, backups, limits.
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
 - [docs/host.md](docs/host.md) – CachyOS production PC: Docker + Compose install, enabled on boot.
 - [docs/writeup.md](docs/writeup.md) – write-up: self-hosting Java + AI projects behind CGNAT with Docker, Traefik and Cloudflare Tunnel.
@@ -147,7 +148,9 @@ docker-socket-proxy) and would update containers without a matching git change.
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost:8880> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost:8880>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
-| `postgres-backup`     | `internal` | Daily `pg_dump` to `./backups/postgres`, 7-day retention. See below. |
+| `postgres-backup`     | `internal` | Daily `pg_dump` of every app DB (`BACKUP_DATABASES`: homelab, forgejo) to `./backups/postgres`, 7-day retention. See below. |
+| `forgejo-db-init`     | `internal` | One-shot: creates the `forgejo` role + DB on Postgres ([`scripts/pg-create-db.sh`](scripts/pg-create-db.sh), idempotent), then exits. |
+| `forgejo`             | `proxy`, `internal` | Self-hosted git ([docs/forgejo.md](docs/forgejo.md), `codeberg.org/forgejo/forgejo:17.0.1-rootless`). Public at `https://git.<domain>`, local at `git.localhost`; SSH only over Tailscale. Registration disabled. |
 | `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres and the admin UIs (see Private access). |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
@@ -175,6 +178,7 @@ The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only
 | `http://homelab-db.<tailnet>.ts.net:5001` | Dockge | Dockge account |
 | `http://homelab-db.<tailnet>.ts.net:3001` | Uptime Kuma | Kuma account |
 | `http://homelab-db.<tailnet>.ts.net:8080/dashboard/` | Traefik dashboard (entrypoint `admin`) | none: tailnet membership is the gate |
+| `ssh://git@homelab-db.<tailnet>.ts.net/<owner>/<repo>.git` | Forgejo git over SSH (`forgejo:2222`) | your SSH key in Forgejo |
 
 None of these are published on the host, the LAN or the internet (the tunnel only reaches Traefik's
 `public` entrypoint). Traffic is encrypted by WireGuard, so plain `http://` is fine here. This replaces
@@ -255,6 +259,7 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `portfolio` | image `HEALTHCHECK` on `/api/health` |
 | `cloudflared` | `cloudflared tunnel ready` (≥1 edge connection) |
 | `uptime-kuma` | image's `extra/healthcheck` |
+| `forgejo` | `curl /api/healthz` (checks Forgejo **and** its database) |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
@@ -281,6 +286,7 @@ Monitors (Add New Monitor; interval 60 s, retries 2):
 | Traefik → whoami | HTTP(s) | `http://traefik:80/health` with header `{"Host": "whoami.localhost"}` | Traefik routing end to end |
 | Dockge | HTTP(s) | `http://dockge:5001/` | Dockge UI |
 | Portfolio (public) | HTTP(s) - Keyword | `https://josuedev.dpdns.org/api/health`, keyword `"UP"` | portfolio through Cloudflare → tunnel → Traefik `public` |
+| Forgejo (public) | HTTP(s) - Keyword | `https://git.josuedev.dpdns.org/api/healthz`, keyword `"pass"` | Forgejo + its DB through Cloudflare → tunnel → Traefik `public` |
 | Postgres backups | Push (later) | — | daily backup heartbeat; not wired yet (needs the push URL in `pg-backup.sh`) |
 
 Kuma is only on `proxy`: it can't reach `postgres` or `docker-socket-proxy` directly, on purpose.

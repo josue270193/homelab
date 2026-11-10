@@ -10,6 +10,7 @@ trap 'rm -f "$env_file"' EXIT
 
 # Required variables (`${VAR:?}` in compose.yaml) get dummy values; everything else keeps the example's.
 sed -e 's|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=dummy-for-validation|' \
+    -e 's|^FORGEJO_DB_PASSWORD=.*|FORGEJO_DB_PASSWORD=dummy-for-validation|' \
     -e "s|^STACKS_DIR=.*|STACKS_DIR=$PWD/services|" \
     -e 's|^COMPOSE_FILE=.*||' \
     .env.example > "$env_file"
