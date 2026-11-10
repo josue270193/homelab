@@ -254,8 +254,13 @@ docker pull ghcr.io/josue270193/homelab-portfolio:latest   # or :sha-<short sha>
 - `npm audit` reports moderate issues only in dev tooling (ESLint → `minimatch`); runtime deps:
   `npm audit --omit=dev` → 0.
 - Telemetry: set `NEXT_TELEMETRY_DISABLED=1` (CI and Docker do).
+- Icon (#117): `src/app/icon.svg` is the 👾 emoji (U+1F47E) from [Twemoji](https://github.com/jdecked/twemoji)
+  15.1.0, licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). `src/app/apple-icon.tsx`
+  renders the same SVG to a 180×180 PNG at build time (no network). There is no `favicon.ico`:
+  browsers use the `<link rel="icon">` Next.js adds to every page.
 
 ## Roadmap (E9)
 
 Scaffold (#70) → Dockerfile + health (#71) → CI to GHCR (#72) → apex domain (#73) → content (#74)
-→ CV download (#75) → contact via Telegram (#76) → bot protection (#77) → optional email (#78).
+→ CV download (#75) → contact via Telegram (#76) → bot protection (#77) → background (#108)
+→ 👾 favicon (#117) → AI/LLM indexing (#118). Email delivery (#78) was dropped: Telegram is enough.
