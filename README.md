@@ -94,8 +94,8 @@ Only routers on `public` are on the internet; admin UIs stay local (details in [
 # Mac: rebuild and restart the API after a code change
 docker compose up -d --build api
 
-# PC: update to what CI published (or set API_TAG=sha-<short sha> in .env to pin a build)
-docker compose pull api && docker compose up -d api
+# PC: deploy what is on main and what CI published (see "Deploy" below)
+scripts/deploy.sh
 
 # Check which mode you're in
 docker compose config --format json | grep -q '"build"' && echo dev || echo prod
@@ -103,6 +103,25 @@ docker compose config --format json | grep -q '"build"' && echo dev || echo prod
 
 `compose.override.yaml` is committed, so forgetting `COMPOSE_FILE` on the PC means it builds from
 source instead of running the CI-tested image.
+
+### Deploy (PC)
+
+After a PR merges to `main` **and** its image workflow (`api-image` / `portfolio-image`) has
+finished publishing to GHCR, run on the PC:
+
+```bash
+scripts/deploy.sh            # git pull --ff-only, compose pull, up -d --wait, prune dangling images
+scripts/deploy.sh --no-pull  # same without git, e.g. after changing .env
+```
+
+It refuses to run unless the checkout is on `main` (override: `DEPLOY_BRANCH`), has no uncommitted
+changes to tracked files, and is in prod mode (no `build`). Only containers whose image or config
+changed are recreated. It exits non-zero and prints `docker compose ps` if anything is not healthy
+within 180 s (`DEPLOY_TIMEOUT`). To pin a build instead of `latest`, set `API_TAG` /
+`PORTFOLIO_TAG=sha-<short sha>` in `.env` and run `scripts/deploy.sh --no-pull`.
+
+Chosen over Watchtower: Watchtower needs the raw Docker socket (we only expose it through
+docker-socket-proxy) and would update containers without a matching git change.
 
 ## Networks
 
