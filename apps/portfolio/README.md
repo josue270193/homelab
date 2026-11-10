@@ -57,6 +57,22 @@ the translated headline. `/api/*`, `robots.txt` and `sitemap.xml` are not locali
 Wording: "Desarrollador" / "Entwickler" rather than "Ingeniero" / "Ingenieur", which are regulated
 titles in Argentina and Germany.
 
+## AI and search indexing (#118)
+
+Search engines and AI tools (ChatGPT search, Claude, Perplexity, Gemini) can read and summarize the site:
+
+- `robots.txt` ([`src/app/robots.ts`](src/app/robots.ts)) allows everyone except `/api/`, and lists
+  the AI crawlers by name (`aiCrawlers` in [`src/content/ai.ts`](src/content/ai.ts)).
+- [`/llms.txt`](https://josuedev.dpdns.org/llms.txt) ([llmstxt.org](https://llmstxt.org)): a Markdown
+  summary with every locale, project, demo and contact link. Prerendered at build time.
+- Every page has JSON-LD (`Person` + `WebSite`, per locale) in `<head>`.
+- All three come from `profile.ts` and the dictionaries, so they can't drift from the page;
+  `src/content/ai.test.ts` checks them.
+- Only the CV is excluded (`X-Robots-Tag: noindex`, see below).
+- **Cloudflare can override this** at the edge: in the dashboard for the zone, under *AI Crawl
+  Control* / *Security → Bots*, keep "Block AI bots" **off** and don't enable the managed
+  robots.txt. Check: `curl -A GPTBot https://josuedev.dpdns.org/robots.txt` shows the file above.
+
 ## Profile picture
 
 The intro shows your **GitHub avatar**, downloaded at build time.
