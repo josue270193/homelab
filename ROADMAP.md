@@ -177,13 +177,15 @@ GitHub stays as a public push mirror. Photos and files are private (Tailscale on
 - **10.4 Deploy from Forgejo** (#122)
   AC: PR → image → `deploy.sh` → live without GitHub.
 - **10.5 Own email address** (#123)
-  AC: Cloudflare Email Routing + SMTP relay for sending; SPF/DKIM/DMARC; not in spam. No mail server (CGNAT).
+  AC: Cloudflare Email Routing + Resend for sending; SPF/DKIM/DMARC; not in spam. No mail server (CGNAT, no PTR).
 - **10.6 Photos: Immich** (#124)
   AC: Tailscale only; library on existing free space for now; phone backup works; no sole copies before 10.8.
 - **10.7 Files** (#125)
   AC: Nextcloud vs Seafile decided (→ OpenCloud + Euro-Office instead, docs/files.md); Tailscale only; desktop + phone sync.
 - **10.8 Backups for user data** (#126)
   AC: encrypted offsite (restic), daily, alerts; restore tested.
+- **10.11 Homelab SMTP relay** (#145)
+  AC: internal-only SMTP container; apps send through it; delivers via Resend; no open relay.
 
 ## Later (not planned yet)
 - Custom Spring Boot control panel replacing Dockge for routing config.
