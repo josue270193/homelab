@@ -39,6 +39,9 @@ FORGEJO_SSH_DOMAIN=homelab-db.<tailnet>.ts.net       # shown in SSH clone URLs
 ## First start
 
 ```bash
+# Create the data dir as YOUR user first. If it doesn't exist, Docker creates it as root and the
+# rootless container (uid 1000) fails with "mkdir: can't create directory '/var/lib/gitea/git'".
+mkdir -p data/forgejo
 docker compose up -d forgejo        # also runs forgejo-db-init once
 docker compose ps forgejo           # (healthy)
 
@@ -67,6 +70,9 @@ git clone https://git.<domain>/<owner>/<repo>.git
 
 **Cloudflare free plan: max 100 MB per request.** Pushes over the public HTTPS URL fail if a single
 pack is larger (big first push, large binaries). Use SSH over Tailscale for those, or LFS.
+
+Already hit that error? The dir is empty, so `rmdir data/forgejo && mkdir data/forgejo` (no sudo:
+`data/` is yours) and the container recovers on its next restart.
 
 ## Backups
 
