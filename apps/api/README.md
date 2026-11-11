@@ -49,22 +49,20 @@ docker compose exec postgres psql -U homelab -d homelab -c 'select * from flyway
 
 ## CI and images
 
-[`.github/workflows/api-image.yml`](../../.github/workflows/api-image.yml) runs on every PR and push to
+[`.forgejo/workflows/api-image.yml`](../../.forgejo/workflows/api-image.yml) runs on Forgejo Actions on every PR and push to
 `main` that touches `apps/api/`:
 
 1. Builds `linux/amd64` + `linux/arm64` with buildx (tests run in the build).
 2. Starts the amd64 image against a throwaway Postgres, waits for `/actuator/health` and checks
    that Flyway applied the migrations (smoke test).
-3. **Only on `main`**, after the smoke test: pushes to `ghcr.io/josue270193/homelab-api` with tags
-   `latest` and `sha-<short commit sha>`. Pull requests never push.
+3. **Only on `main`**, after the smoke test: pushes to the Forgejo registry as `josue/homelab-api`
+   with tags `latest` and `sha-<short commit sha>`. Pull requests never push.
 
-Uses the workflow's `GITHUB_TOKEN` (`packages: write`), no personal token. Actions are pinned to commit
-SHAs; layer cache lives in the GitHub Actions cache.
+Pushes use the `REGISTRY_TOKEN` repo secret (`write:package` only) and go over the internal `ci`
+network, not Cloudflare. Actions are pinned to commit SHAs; the layer cache is the `buildcache` tag.
+See [docs/forgejo.md](../../docs/forgejo.md#ci-forgejo-actions-121).
 
 ```bash
-docker pull ghcr.io/josue270193/homelab-api:latest        # or :sha-<short sha> to pin a build
+docker pull git.<domain>/josue/homelab-api:latest        # or :sha-<short sha> to pin a build
 ```
-
-If the package is private, log in first with a classic token that has `read:packages`
-(`docker login ghcr.io -u josue270193`, paste the token at the prompt so it stays out of shell history).
 

@@ -93,6 +93,62 @@ git fetch origin && git branch -u origin/main main
   GPG key must be added under **Settings → SSH / GPG keys** for commits to show as verified.
 - **CLI:** `gt` (the Gitea CLI) talks to Forgejo; see CLAUDE.md for the commands.
 
+## CI: Forgejo Actions (#121)
+
+Forgejo has no hosted runners: jobs run on our own `forgejo-runner` (`compose.yaml`). Workflows live
+in `.forgejo/workflows/` (Forgejo ignores `.github/` when that dir exists, and GitHub sees no
+workflows on the mirror, so CI runs only once).
+
+```
+forgejo-runner ──TLS──> runner-dind (its own dockerd, privileged) ──> job containers (network: host)
+      │                                                                 │
+      └── ci network ── forgejo:3000 (runner API, registry pushes) <────┘
+```
+
+- **Never the host socket.** Jobs talk to `runner-dind` over mutual TLS (`DOCKER_HOST` set by the
+  runner config); `docker_host: "-"` means no socket is mounted into jobs. The `ci` network has
+  egress but no route to `internal`, so jobs can't reach Postgres.
+- **Job image:** label `ubuntu-latest` → `ghcr.io/catthehacker/ubuntu:act-24.04-<date>` (docker CLI,
+  compose, buildx, node). Bump the pinned date tag like any other image.
+- **Actions:** `uses: actions/...` resolves on github.com (`FORGEJO__actions__DEFAULT_ACTIONS_URL`).
+  `permissions:` blocks are not supported by Forgejo and were removed.
+- **Multi-arch:** `docker/setup-qemu-action` registers arm64 binfmt through the privileged DinD (the
+  binfmt handlers are kernel-wide, so this also affects the host). BuildKit runs with
+  `network=host` inside `runner-dind` so it can resolve `forgejo`.
+- **State persists between jobs** (unlike GitHub's throwaway VMs): smoke tests remove their own
+  containers, and images/layers accumulate in the `runner-dind` volume. Prune now and then:
+  `docker compose exec runner-dind docker system prune -af`.
+
+### Registering the runner
+
+The runner is created through the API (repo-level, so it only serves this repo); the response's
+`uuid` and `token` go into `.env` as `FORGEJO_RUNNER_UUID` / `FORGEJO_RUNNER_TOKEN`:
+
+```bash
+gt api /repos/josue/homelab/actions/runners -f name=homelab-pc -R josue/homelab   # prints uuid + token once
+mkdir -p data/forgejo-runner        # as your user, before the first start
+docker compose up -d forgejo-runner # also starts runner-dind
+docker compose logs forgejo-runner  # "declared successfully"
+```
+
+To rotate the token: delete the runner (**Settings → Actions → Runners**), register a new one and
+update `.env`.
+
+### Registry (Forgejo packages)
+
+Images are published to Forgejo's container registry as `josue/homelab-api` and
+`josue/homelab-portfolio`.
+
+- **Push (CI):** to `forgejo:3000/josue/...` over plain HTTP inside the `ci` network
+  (`--insecure-registry` on `runner-dind`, `http = true` for BuildKit). This bypasses Cloudflare's
+  100 MB upload cap; only the small token request goes through `git.<domain>`.
+- **Pull (production):** `git.<domain>/josue/homelab-api:${API_TAG:-latest}` in `compose.yaml`. Same
+  registry, public hostname; the packages are public like the repo, so no `docker login` is needed.
+- **Credential:** repo secret `REGISTRY_TOKEN` = an access token of `josue` with **only**
+  `write:package` scope (**Settings → Applications → Generate new token**, then repo **Settings →
+  Actions → Secrets**). The automatic job token isn't used for pushes.
+- Each image also has a `buildcache` tag (BuildKit layer cache, written on `main`).
+
 ## Backups
 
 - The `forgejo` database is in the nightly `pg_dump` (`BACKUP_DATABASES` on `postgres-backup`).

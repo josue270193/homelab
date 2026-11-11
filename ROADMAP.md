@@ -173,7 +173,7 @@ GitHub stays as a public push mirror. Photos and files are private (Tailscale on
 - **10.2 Move the repo to Forgejo** (#120)
   AC: history, issues and PRs migrated; push mirror to GitHub; CLAUDE.md/README updated.
 - **10.3 CI on Forgejo Actions** (#121)
-  AC: runner with its own DinD (never the host socket); multi-arch builds; registry decided.
+  AC: runner with its own DinD (never the host socket); multi-arch builds; registry: Forgejo packages.
 - **10.4 Deploy from Forgejo** (#122)
   AC: PR → image → `deploy.sh` → live without GitHub.
 - **10.5 Own email address** (#123)

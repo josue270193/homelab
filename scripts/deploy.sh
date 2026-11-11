@@ -17,7 +17,7 @@ pull_git=1
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'deploy: %s\n' "$*" >&2; exit 1; }
 
-# Guards: production only runs committed code from $branch, and only GHCR images (never local builds).
+# Guards: production only runs committed code from $branch, and only CI-published registry images (never local builds).
 [ -f .env ] || die ".env missing (see docs/host.md)"
 current=$(git rev-parse --abbrev-ref HEAD)
 [ "$current" = "$branch" ] || die "on branch '$current', production deploys only '$branch'"

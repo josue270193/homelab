@@ -31,7 +31,7 @@ Being in the `docker` group is effectively root on this machine; only trusted us
 First start on a new PC (production since 2026-11-10):
 
 1. Clone the repo, then copy `.env` from the old machine (or fill it from `.env.example`). The
-   production-only values are `COMPOSE_FILE=compose.yaml`, so the PC pulls the CI images from GHCR
+   production-only values are `COMPOSE_FILE=compose.yaml`, so the PC pulls the CI images from the Forgejo registry
    and never builds; `TRAEFIK_HTTP_PORT=80`; and `STACKS_DIR` set to this clone's absolute
    `services/` path. Then `chmod 600 .env`.
 2. Copy the tunnel credentials `data/cloudflared/<tunnel-id>.json` over, then give them to the

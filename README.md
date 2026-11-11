@@ -115,8 +115,8 @@ Only routers on `public` are on the internet; admin UIs stay local (details in [
 |---|---|---|
 | Files loaded | `compose.yaml` + `compose.override.yaml` (automatic) | `compose.yaml` only |
 | How | default | `COMPOSE_FILE=compose.yaml` in that machine's `.env` |
-| `api` image | built from `apps/api` → `homelab-api:dev` | pulled from `ghcr.io/josue270193/homelab-api:${API_TAG:-latest}` |
-| `portfolio` image | built from `apps/portfolio` → `homelab-portfolio:dev` | pulled from `ghcr.io/josue270193/homelab-portfolio:${PORTFOLIO_TAG:-latest}` |
+| `api` image | built from `apps/api` → `homelab-api:dev` | pulled from `git.<domain>/josue/homelab-api:${API_TAG:-latest}` (Forgejo registry) |
+| `portfolio` image | built from `apps/portfolio` → `homelab-portfolio:dev` | pulled from `git.<domain>/josue/homelab-portfolio:${PORTFOLIO_TAG:-latest}` |
 
 ```bash
 # Mac: rebuild and restart the API after a code change
@@ -135,7 +135,7 @@ source instead of running the CI-tested image.
 ### Deploy (PC)
 
 After a PR merges to `main` **and** its image workflow (`api-image` / `portfolio-image`) has
-finished publishing to GHCR, run on the PC:
+finished publishing to the Forgejo registry, run on the PC:
 
 ```bash
 scripts/deploy.sh            # git pull --ff-only, compose pull, up -d --wait, prune dangling images
@@ -168,8 +168,8 @@ docker-socket-proxy) and would update containers without a matching git change.
 |-----------------------|------------|-------|
 | `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
-| `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
-| `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). GHCR image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost>. |
+| `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). Forgejo registry image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
+| `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). Forgejo registry image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost>. |
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
@@ -477,11 +477,15 @@ Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 
 ## CI checks
 
+Workflows live in `.forgejo/workflows/` and run on Forgejo Actions with our own runner
+(`forgejo-runner` + its `runner-dind` Docker daemon, see [docs/forgejo.md](docs/forgejo.md#ci-forgejo-actions-121)).
+The GitHub mirror has no workflows, so nothing runs there.
+
 | Workflow | Check | Runs on | What it does |
 |---|---|---|---|
 | `compose-validate` | `compose` | every PR + push to `main` | `docker compose config` for dev, prod and every `services/*` stack |
-| `api-image` | `build` | PRs/pushes touching `apps/api/**` | builds amd64 + arm64, smoke test with Postgres, publishes to GHCR on `main` |
-| `portfolio-image` | `build` | PRs/pushes touching `apps/portfolio/**` | lint, builds amd64 + arm64, smoke test on `/api/health`, publishes to GHCR on `main` |
+| `api-image` | `build` | PRs/pushes touching `apps/api/**` | builds amd64 + arm64, smoke test with Postgres, publishes to the Forgejo registry on `main` |
+| `portfolio-image` | `build` | PRs/pushes touching `apps/portfolio/**` | lint, builds amd64 + arm64, smoke test on `/api/health`, publishes to the Forgejo registry on `main` |
 
 Run the compose check locally before opening a PR (it uses `.env.example` with dummy secrets, never
 your `.env`):

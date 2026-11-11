@@ -42,7 +42,7 @@ mirror: never open issues or PRs there. Use the `gt` CLI (Gitea/Forgejo), not `g
 - Expose services ONLY through Traefik labels (`traefik.enable=true` + router + service port).
 - Traefik talks to Docker through docker-socket-proxy, never the raw socket.
 - Images must build for both linux/amd64 and linux/arm64.
-- Pin image versions (no `:latest` in production compose, except our own GHCR images).
+- Pin image versions (no `:latest` in production compose, except our own images from the Forgejo registry).
 - Update docs (README or docs/) in the same PR when behavior changes.
 
 ## Useful commands

@@ -1,6 +1,6 @@
 # Lints the portfolio, builds its image for linux/amd64 and linux/arm64 (Mac dev + CachyOS PC),
-# smoke-tests it, and on pushes to main publishes it to ghcr.io/<owner>/homelab-portfolio as
-# `latest` + `sha-<short sha>`. Same pattern as api-image.yml.
+# smoke-tests it, and on pushes to main publishes it to the Forgejo registry
+# (git.<domain>/<owner>/homelab-portfolio) as `latest` + `sha-<short sha>`. Same pattern as api-image.yml.
 # Pull requests build and test only; they never push.
 name: portfolio-image
 
@@ -9,15 +9,12 @@ on:
     branches: [main]
     paths:
       - "apps/portfolio/**"
-      - ".github/workflows/portfolio-image.yml"
+      - ".forgejo/workflows/portfolio-image.yml"
   pull_request:
     paths:
       - "apps/portfolio/**"
-      - ".github/workflows/portfolio-image.yml"
+      - ".forgejo/workflows/portfolio-image.yml"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 concurrency:
   group: portfolio-image-${{ github.ref }}
@@ -25,15 +22,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/homelab-portfolio
+  # Pushed over the `ci` Docker network straight to Forgejo's registry (#121), not through Cloudflare
+  # (100 MB upload cap). Production pulls the same image as git.<domain>/<owner>/homelab-portfolio.
+  IMAGE: forgejo:3000/${{ github.repository_owner }}/homelab-portfolio
+  # Build summaries/records upload to GitHub's API, which Forgejo doesn't have.
+  DOCKER_BUILD_SUMMARY: "false"
+  DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write   # push to GHCR with GITHUB_TOKEN (only used on main)
     steps:
       # Actions pinned to commit SHAs (tags are mutable); version in the comment.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,7 +58,13 @@ jobs:
         with:
           platforms: arm64
 
+      # BuildKit shares runner-dind's network (resolves `forgejo`); the registry is plain HTTP inside `ci`.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: network=host
+          buildkitd-config-inline: |
+            [registry."forgejo:3000"]
+              http = true
 
       - name: Build linux/amd64 + linux/arm64
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -67,8 +72,8 @@ jobs:
           context: apps/portfolio
           platforms: linux/amd64,linux/arm64
           push: false
-          cache-from: type=gha,scope=portfolio
-          cache-to: type=gha,scope=portfolio,mode=max
+          # Layer cache lives in the registry (written by the publish step on main).
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
 
       # Smoke test: the amd64 image (same as the CachyOS PC) must start and report healthy.
       - name: Load amd64 image
@@ -78,10 +83,11 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: homelab-portfolio:ci
-          cache-from: type=gha,scope=portfolio
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
 
       - name: Smoke test /api/health
         run: |
+          docker rm -f portfolio >/dev/null 2>&1 || true
           docker run -d --name portfolio -p 127.0.0.1:3000:3000 homelab-portfolio:ci
           for _ in $(seq 1 60); do
             status=$(docker inspect portfolio --format '{{.State.Health.Status}}')
@@ -95,6 +101,10 @@ jobs:
           # `/` redirects to a locale (#90); -L follows it, so this also checks the redirect.
           curl -fsSL http://127.0.0.1:3000/ | grep -q "<title>" || { echo "::error::home page has no <title>"; exit 1; }
 
+      - name: Remove smoke-test container
+        if: always()
+        run: docker rm -f portfolio >/dev/null 2>&1 || true
+
       # ---- Publish (main only, after the smoke test passed) ----
       - name: Image tags
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -106,13 +116,13 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
-      - name: Log in to GHCR
+      - name: Log in to the Forgejo registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: forgejo:3000
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.REGISTRY_TOKEN }}   # PAT with write:package (docs/forgejo.md)
 
       # Same inputs as the first build, so every layer comes from cache: this only pushes.
       - name: Push linux/amd64 + linux/arm64
@@ -124,4 +134,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=portfolio
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
