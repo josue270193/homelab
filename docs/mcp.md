@@ -57,3 +57,23 @@ separate profile. In `.mcp.json` args, replace `"--connect-existing", "--marione
 ## Notes
 
 - Package versions are pinned; bump them deliberately.
+
+## Agent skills
+
+Skills for Claude Code are vendored in `.agents/skills/<name>/` and linked into
+`.claude/skills/<name>`, so every clone has them. They are managed with the
+[`skills`](https://www.npmjs.com/package/skills) CLI, which records each source and a content hash
+in `skills-lock.json`:
+
+| Skill | Source | Used for |
+|---|---|---|
+| `claude-for-safari` | `SDLLL/claude-for-safari` (GitHub) | Driving Safari on the Mac |
+| `gt` | `https://gitea.com/gitea/cli.git` | Issues, PRs and Actions on Forgejo through the `gt` CLI (#137) |
+
+Install or update one (re-running `add` replaces it), then commit the result through a PR:
+
+```bash
+npx skills add https://gitea.com/gitea/cli.git --skill gt
+```
+
+Read the diff of `.agents/skills/` before committing: skills are instructions the agent follows.

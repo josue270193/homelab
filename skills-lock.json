@@ -1,11 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "claude-for-safari": {
       "source": "SDLLL/claude-for-safari",
       "sourceType": "github",
       "skillPath": "SKILL.md",
-      "computedHash": "899a85ca31cae7b921da022dabc36f661fda7b078cfefd5dc08be0ef7f4def69"
+      "computedHash": "7a082ca4e04775a583860b0b94543ed7dba944370ae4cc100e9d18c66cadcfdf"
+    },
+    "gt": {
+      "source": "https://gitea.com/gitea/cli.git",
+      "sourceUrl": "https://gitea.com/gitea/cli.git",
+      "sourceType": "git",
+      "skillPath": "skills/gt/SKILL.md",
+      "computedHash": "273b0a2e1a2e250b184402f569eec43cce5e62f145e751f4b941a20ebc25d7ef"
     }
   }
 }
