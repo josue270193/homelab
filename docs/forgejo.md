@@ -110,7 +110,10 @@ forgejo-runner ──TLS──> runner-dind (its own dockerd, privileged) ──
   egress but no route to `internal`, so jobs can't reach Postgres.
 - **Job image:** label `ubuntu-latest` → `ghcr.io/catthehacker/ubuntu:act-24.04-<date>` (docker CLI,
   compose, buildx, node). Bump the pinned date tag like any other image.
-- **Actions:** `uses: actions/...` resolves on github.com (`FORGEJO__actions__DEFAULT_ACTIONS_URL`).
+- **Actions:** `uses: actions/...` resolves on `data.forgejo.org`, Forgejo's mirror of the common
+  actions (`FORGEJO__actions__DEFAULT_ACTIONS_URL`), so CI doesn't need GitHub (#122). Before pinning a
+  new action SHA, check it's mirrored:
+  `curl -fsI https://data.forgejo.org/api/v1/repos/<owner>/<action>/git/commits/<sha>`.
   `permissions:` blocks are not supported by Forgejo and were removed.
 - **Multi-arch:** `docker/setup-qemu-action` registers arm64 binfmt through the privileged DinD (the
   binfmt handlers are kernel-wide, so this also affects the host). BuildKit runs with
@@ -148,6 +151,43 @@ Images are published to Forgejo's container registry as `josue/homelab-api` and
   `write:package` scope (**Settings → Applications → Generate new token**, then repo **Settings →
   Actions → Secrets**). The automatic job token isn't used for pushes.
 - Each image also has a `buildcache` tag (BuildKit layer cache, written on `main`).
+
+## Deploying without GitHub (#122)
+
+A merged change goes live without touching GitHub:
+
+1. PR on Forgejo → CI on `forgejo-runner` (actions from `data.forgejo.org`).
+2. Merge (fast-forward) → `api-image` / `portfolio-image` publish to the Forgejo registry.
+3. On the PC: `scripts/deploy.sh` pulls `origin` (Forgejo, over Tailscale SSH) and the images from
+   `git.<domain>`. It refuses to run if `origin` points at GitHub.
+
+GitHub is only the push mirror: if it is down or the mirror is paused, nothing above changes (the
+mirror just shows `last_error` and catches up on the next sync). Remaining third-party pulls are
+Docker Hub / Codeberg / `code.forgejo.org` images and, for CI only, the job image
+`ghcr.io/catthehacker/ubuntu`, which stays cached in the `runner-dind` volume after its first pull.
+
+## Recovery: the PC is lost
+
+Forgejo itself runs on the PC, so losing it means losing the code host too. The GitHub mirror is the
+offsite copy of the code (history up to the last mirror sync; **issues, PRs and packages are not
+mirrored**) until offsite backups exist (#126).
+
+1. New machine: follow [docs/host.md](host.md) (Docker, Compose, firewall).
+2. Clone from the mirror: `git clone git@github.com:josue270193/homelab.git`; restore `.env` from
+   your password manager / backup (it is never in git).
+3. Restore data: the Postgres dumps (`forgejo-*.dump`, `homelab-*.dump`) and `data/` from the 10.8
+   backups (#126), see Backups below and README "If `data/` is lost". With `data/forgejo` and the
+   `forgejo` DB back, Forgejo has its repos, issues and secrets again. Repoint `origin` at it
+   (`git remote set-url origin ssh://git@homelab-db.<tailnet>.ts.net/josue/homelab.git`):
+   `deploy.sh` refuses a GitHub `origin`.
+4. Images: the registry lives in `data/forgejo` too. If it wasn't restored, either build locally
+   once (`docker compose -f compose.yaml -f compose.override.yaml build api portfolio` and tag them
+   as `git.<domain>/josue/homelab-*:latest`) or push any commit to `main` once the runner is up so CI
+   republishes them.
+5. Runner: register a new one (above) and update `FORGEJO_RUNNER_UUID` / `FORGEJO_RUNNER_TOKEN`;
+   recreate the `REGISTRY_TOKEN` secret if the Forgejo DB was not restored.
+6. If Forgejo could not be restored at all: create the instance fresh (First start), push the
+   mirror clone to it, then repoint `origin` (Clone and push above).
 
 ## Backups
 

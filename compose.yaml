@@ -398,10 +398,11 @@ services:
       FORGEJO__session__COOKIE_SECURE: "true"
       # Behind Traefik + Cloudflare: trust X-Forwarded-For from the Docker networks for client IPs.
       FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES: 172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
-      # Actions (#121): `uses: actions/checkout@<sha>` resolves on github.com (default: data.forgejo.org,
-      # which doesn't mirror every SHA). Jobs run on `forgejo-runner` below.
+      # Actions (#121): `uses: actions/checkout@<sha>` resolves on data.forgejo.org (Forgejo's mirror of
+      # the common actions), not github.com, so CI works without GitHub (#122). Jobs run on
+      # `forgejo-runner` below.
       FORGEJO__actions__ENABLED: "true"
-      FORGEJO__actions__DEFAULT_ACTIONS_URL: https://github.com
+      FORGEJO__actions__DEFAULT_ACTIONS_URL: https://data.forgejo.org
     volumes:
       - ./data/forgejo:/var/lib/gitea
     healthcheck:

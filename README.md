@@ -138,12 +138,14 @@ After a PR merges to `main` **and** its image workflow (`api-image` / `portfolio
 finished publishing to the Forgejo registry, run on the PC:
 
 ```bash
-scripts/deploy.sh            # git pull --ff-only, compose pull, up -d --wait, prune dangling images
+scripts/deploy.sh            # git pull --ff-only origin main, compose pull, up -d --wait, prune dangling images
 scripts/deploy.sh --no-pull  # same without git, e.g. after changing .env
 ```
 
 It refuses to run unless the checkout is on `main` (override: `DEPLOY_BRANCH`), has no uncommitted
-changes to tracked files, and is in prod mode (no `build`). Only containers whose image or config
+changes to tracked files, is in prod mode (no `build`), and `origin` is Forgejo (never the GitHub
+mirror). The whole path PR → CI → registry → deploy runs without GitHub (#122,
+[docs/forgejo.md](docs/forgejo.md#deploying-without-github-122)). Only containers whose image or config
 changed are recreated. It exits non-zero and prints `docker compose ps` if anything is not healthy
 within 180 s (`DEPLOY_TIMEOUT`). To pin a build instead of `latest`, set `API_TAG` /
 `PORTFOLIO_TAG=sha-<short sha>` in `.env` and run `scripts/deploy.sh --no-pull`.
