@@ -11,6 +11,25 @@ Internet ──> Cloudflare (DNS, TLS, Access)
          internal network only: postgres, docker-socket-proxy
 ```
 
+## Quick links
+
+Local links work on the PC itself (Traefik on `127.0.0.1:80`; `*.localhost` resolves to it without
+any hosts file). Tailscale links work from any device on your tailnet (`<tailnet>` = your tailnet
+name, e.g. `homelab-db.tail1234.ts.net`).
+
+| Service | Public (internet) | Local (on the PC) | Tailscale |
+|---|---|---|---|
+| Portfolio | <https://josuedev.dpdns.org> | <http://portfolio.localhost> | |
+| API health | <https://api.josuedev.dpdns.org/actuator/health> | <http://api.localhost/actuator/health> | |
+| Forgejo (git) | <https://git.josuedev.dpdns.org> | <http://git.localhost> | `ssh://git@homelab-db.<tailnet>.ts.net/<owner>/<repo>.git` |
+| whoami (test) | <https://whoami.josuedev.dpdns.org> | <http://whoami.localhost> | |
+| Traefik dashboard | (never public) | <http://traefik.localhost/dashboard/> | `http://homelab-db.<tailnet>.ts.net:8080/dashboard/` |
+| Dockge | (never public) | <http://dockge.localhost> | `http://homelab-db.<tailnet>.ts.net:5001` |
+| Uptime Kuma | (never public) | <http://status.localhost> | `http://homelab-db.<tailnet>.ts.net:3001` |
+| Postgres | (never public) | (no host port) | `homelab-db.<tailnet>.ts.net:5432` |
+
+On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
+
 ## Docs
 
 - [ROADMAP.md](ROADMAP.md) – epics, issues and acceptance criteria.
@@ -71,14 +90,15 @@ docker compose up -d
 
 ### Public vs local
 
-> Local URLs in this README use `:8880`, the Mac's `TRAEFIK_HTTP_PORT` (CryptoMate owns `:80`).
-> Without the port you reach whatever else listens on `:80`, not the homelab.
+> Local URLs in this README use port 80 (the PC, production). On the Mac, `TRAEFIK_HTTP_PORT=8880`
+> (CryptoMate owns `:80`), so add `:8880`, e.g. `http://whoami.localhost:8880`.
 
 | URL | Reachable from | Entry |
 |---|---|---|
 | `https://whoami.josuedev.dpdns.org` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `https://api.josuedev.dpdns.org/actuator/health` | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `https://josuedev.dpdns.org` (portfolio; `www.` → 301 to it) | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
+| `https://git.josuedev.dpdns.org` (Forgejo) | internet (Cloudflare Tunnel) | Traefik entrypoint `public` |
 | `http://<name>.localhost:${TRAEFIK_HTTP_PORT}` | this machine only | Traefik entrypoint `web` |
 
 Only routers on `public` are on the internet; admin UIs stay local (details in [docs/tunnel.md](docs/tunnel.md)).
@@ -140,13 +160,13 @@ docker-socket-proxy) and would update containers without a matching git change.
 
 | Service               | Network    | Notes |
 |-----------------------|------------|-------|
-| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost:8880/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
-| `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost:8880> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
+| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
+| `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). GHCR image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
-| `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). GHCR image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost:8880>. |
+| `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). GHCR image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost>. |
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
-| `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost:8880> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
-| `whoami`              | `proxy`    | Test service at <http://whoami.localhost:8880>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
+| `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
+| `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
 | `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
 | `postgres-backup`     | `internal` | Daily `pg_dump` of every app DB (`BACKUP_DATABASES`: homelab, forgejo) to `./backups/postgres`, 7-day retention. See below. |
 | `forgejo-db-init`     | `internal` | One-shot: creates the `forgejo` role + DB on Postgres ([`scripts/pg-create-db.sh`](scripts/pg-create-db.sh), idempotent), then exits. |
@@ -269,13 +289,13 @@ container until it is healthy). Images without a shell use Traefik's
 
 ## Monitoring
 
-Uptime Kuma runs at <http://status.localhost:8880> locally and over Tailscale (see Private access). Its monitors
+Uptime Kuma runs at <http://status.localhost> locally and over Tailscale (see Private access). Its monitors
 and notification settings live in its own database (volume `homelab_uptime-kuma-data`), not in git,
 so the list below is the source of truth to recreate them.
 
 First run:
 
-1. Open <http://status.localhost:8880>, choose **SQLite** (the `slim` image has no embedded MariaDB).
+1. Open <http://status.localhost>, choose **SQLite** (the `slim` image has no embedded MariaDB).
 2. Create the admin account (yours; use a password manager).
 
 Monitors (Add New Monitor; interval 60 s, retries 2):
@@ -378,7 +398,7 @@ curl -I http://myapp.localhost
 
 ### From the UI (Dockge)
 
-Open Dockge locally (<http://dockge.localhost:8880>, port = `TRAEFIK_HTTP_PORT`) or over Tailscale
+Open Dockge locally (<http://dockge.localhost>, port = `TRAEFIK_HTTP_PORT`) or over Tailscale
 (`http://homelab-db.<tailnet>.ts.net:5001`). The first visit asks you to create the admin account.
 
 **Publish any image at `https://<name>.josuedev.dpdns.org` (≈ 2 minutes):**
@@ -414,7 +434,7 @@ Open Dockge locally (<http://dockge.localhost:8880>, port = `TRAEFIK_HTTP_PORT`)
    `myapp.localhost` and the internet gets **404** (Dockge doesn't read the root `.env`).
 4. **Deploy**, then open `https://<name>.josuedev.dpdns.org`. No DNS or tunnel change is needed (wildcard).
 
-Troubleshooting a public 404: `curl -s http://traefik.localhost:8880/api/http/routers` lists every
+Troubleshooting a public 404: `curl -s http://traefik.localhost/api/http/routers` lists every
 router with its rule; the public one must say `Host(<name>.josuedev.dpdns.org)` on entrypoint `public`.
 
 To keep it **local only**, delete the three `myapp-public` lines. To remove it: **Stop** → **Delete** in Dockge.
