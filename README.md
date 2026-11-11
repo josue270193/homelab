@@ -471,6 +471,9 @@ Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 - Services are exposed only through Traefik labels.
 - `main` only changes through PRs on Forgejo and only accepts GPG-signed commits, enforced by its
   branch protection rule. Every push to `main` is mirrored to GitHub.
+- Each issue is worked in its own git worktree under `.worktrees/` (git-ignored), never by switching
+  branches in the main checkout; the worktree and local branch are removed once the PR is merged.
+  Details and commands in CLAUDE.md. `docker compose up` only runs from the main checkout.
 
 ## CI checks
 

@@ -22,6 +22,7 @@ logs/
 *.swp
 
 # Local tooling
+.worktrees/
 .codegraph/
 .claude/settings.local.json
 apps/*/target/
