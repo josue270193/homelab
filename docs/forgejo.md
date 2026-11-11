@@ -166,6 +166,13 @@ mirror just shows `last_error` and catches up on the next sync). Remaining third
 Docker Hub / Codeberg / `code.forgejo.org` images and, for CI only, the job image
 `ghcr.io/catthehacker/ubuntu`, which stays cached in the `runner-dind` volume after its first pull.
 
+**Verified 2026-11-11:** with `github.com`, `*.githubusercontent.com` and `ghcr.io` blackholed
+(`0.0.0.0` in `/etc/hosts` of `forgejo`, `forgejo-runner` and `runner-dind`, so also every job and
+BuildKit container), the PR that added this paragraph went through CI, was merged, published
+`josue/homelab-api:sha-<commit>` and was deployed with `scripts/deploy.sh`. To repeat the test, add
+those entries with `docker compose exec -u 0 <service> sh -c 'echo "0.0.0.0 github.com …" >> /etc/hosts'`
+and recreate the three containers afterwards (`docker compose up -d --force-recreate …`).
+
 ## Recovery: the PC is lost
 
 Forgejo itself runs on the PC, so losing it means losing the code host too. The GitHub mirror is the

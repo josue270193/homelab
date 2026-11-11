@@ -60,7 +60,8 @@ docker compose exec postgres psql -U homelab -d homelab -c 'select * from flyway
 
 Pushes use the `REGISTRY_TOKEN` repo secret (`write:package` only) and go over the internal `ci`
 network, not Cloudflare. Actions are pinned to commit SHAs; the layer cache is the `buildcache` tag.
-See [docs/forgejo.md](../../docs/forgejo.md#ci-forgejo-actions-121).
+See [docs/forgejo.md](../../docs/forgejo.md#ci-forgejo-actions-121). Neither CI nor the deploy needs
+GitHub ([verified](../../docs/forgejo.md#deploying-without-github-122)).
 
 ```bash
 docker pull git.<domain>/josue/homelab-api:latest        # or :sha-<short sha> to pin a build
