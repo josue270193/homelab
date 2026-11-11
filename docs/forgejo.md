@@ -74,6 +74,25 @@ pack is larger (big first push, large binaries). Use SSH over Tailscale for thos
 Already hit that error? The dir is empty, so `rmdir data/forgejo && mkdir data/forgejo` (no sudo:
 `data/` is yours) and the container recovers on its next restart.
 
+## This repo on Forgejo (#120)
+
+`josue/homelab` was imported with **New migration → GitHub** (full history, issues, labels,
+milestones, PRs), then made the source of truth. Remotes on each machine:
+
+```bash
+git remote rename origin github      # optional: keep GitHub for reference only
+git remote add origin ssh://git@homelab-db.<tailnet>.ts.net/josue/homelab.git
+git fetch origin && git branch -u origin/main main
+```
+
+- **Push mirror to GitHub:** repo **Settings → Repository → Mirror settings**, remote
+  `https://github.com/josue270193/homelab.git`, sync on push plus every 8 h. It authenticates
+  with a fine-grained GitHub token (Contents: read and write, this repo only) stored in Forgejo,
+  never in git. If the token expires the mirror shows `last_error`: create a new one and update it there.
+- **Branch protection on `main`:** no direct pushes, signed commits required. Each committer's
+  GPG key must be added under **Settings → SSH / GPG keys** for commits to show as verified.
+- **CLI:** `gt` (the Gitea CLI) talks to Forgejo; see CLAUDE.md for the commands.
+
 ## Backups
 
 - The `forgejo` database is in the nightly `pg_dump` (`BACKUP_DATABASES` on `postgres-backup`).

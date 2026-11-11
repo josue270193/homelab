@@ -3,6 +3,10 @@
 Self-hosted Docker stack. Developed on a MacBook (arm64), runs 24/7 on a CachyOS PC (amd64),
 published to the internet through Cloudflare Tunnel → Traefik v3 (no open router ports).
 
+> **Canonical repo:** <https://git.josuedev.dpdns.org/josue/homelab> (self-hosted Forgejo): code,
+> issues and PRs live there. The GitHub repo is a read-only push mirror kept for links; issues and
+> PRs opened on GitHub are not read.
+
 ```
 Internet ──> Cloudflare (DNS, TLS, Access)
                │  outbound tunnel
@@ -43,21 +47,22 @@ On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
 - [docs/domain.md](docs/domain.md) – `josuedev.dpdns.org` on Cloudflare: nameservers, **manual renewal before 2027-11-02**.
 - [apps/api](apps/api/README.md) – Spring Boot API (Java 21): build, run, image layout.
 - [apps/portfolio](apps/portfolio/README.md) – portfolio website (Next.js), epic E9.
-- Work is tracked in GitHub Issues: `gh issue list`.
-- Board: [Homelab project](https://github.com/users/josue270193/projects/2) with Status columns
-  **Backlog → Ready → In progress → Done**. New issues from `./create-issues.sh` land there when run
-  with `PROJECT="Homelab"` (needs `gh auth refresh -s project`).
+- Work is tracked in [Forgejo issues](https://git.josuedev.dpdns.org/josue/homelab/issues):
+  `gt issue list`. Everything up to #132 was imported from GitHub with its numbers (#120).
+- The old [GitHub project board](https://github.com/users/josue270193/projects/2) and
+  `./create-issues.sh` (uses `gh`) are from before the move and are no longer updated.
 
 ## Getting started
 
-Prerequisites on the Mac: [GitHub CLI](https://cli.github.com/) authenticated with the `project`
-scope (needed for the board and `create-issues.sh`):
+Prerequisites on the Mac and the PC: the [`gt` CLI](https://gitea.com/gitea/cli) (works with
+Forgejo) logged in with a Forgejo access token (`write:repository`, `write:issue`), your SSH key in
+Forgejo (**Settings → SSH / GPG keys**), and your GPG key there too, because `main` only accepts
+signed commits:
 
 ```bash
-brew install gh
-gh auth login            # GitHub.com, SSH
-gh auth refresh -s project
-gh issue list            # should list the repo's issues
+gt auth login            # host https://git.josuedev.dpdns.org, paste the token
+gt issue list            # should list the repo's issues
+git config commit.gpgsign true
 ```
 
 Docker runtime on the Mac: **Docker Desktop** (Compose v2 plugin and buildx included; free for
@@ -72,7 +77,8 @@ docker run --rm --platform linux/arm64 alpine:3.20 uname -m   # aarch64
 Then:
 
 ```bash
-git clone git@github.com:josue270193/homelab.git
+# SSH over Tailscale (see docs/forgejo.md)
+git clone ssh://git@homelab-db.<tailnet>.ts.net/josue/homelab.git
 cd homelab
 cp .env.example .env   # fill in real values; .env is git-ignored
 # set a real POSTGRES_PASSWORD, e.g.:
@@ -463,7 +469,8 @@ Dockge's last release is 1.5.0 (Mar 2025); revisit if it stays unmaintained.
 - Service data (bind mounts under `data/`, `volumes/`, `backups/`) is git-ignored.
 - Databases are never published; they live only on the `internal` network.
 - Services are exposed only through Traefik labels.
-- `main` only changes through PRs (squash merge), enforced by the `Basic` ruleset.
+- `main` only changes through PRs on Forgejo and only accepts GPG-signed commits, enforced by its
+  branch protection rule. Every push to `main` is mirrored to GitHub.
 
 ## CI checks
 

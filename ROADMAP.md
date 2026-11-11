@@ -1,7 +1,7 @@
 # Homelab Roadmap
 
 Self-hosted Docker stack: develop on MacBook (arm64), run on CachyOS PC (amd64),
-exposed through Cloudflare Tunnel + Traefik. Tracked in GitHub Issues/Projects.
+exposed through Cloudflare Tunnel + Traefik. Tracked in Forgejo issues (git.josuedev.dpdns.org/josue/homelab; GitHub is a push mirror).
 
 ## Architecture (target)
 
