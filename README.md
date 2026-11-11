@@ -31,6 +31,7 @@ name, e.g. `homelab-db.tail1234.ts.net`).
 | Dockge | (never public) | <http://dockge.localhost> | `http://homelab-db.<tailnet>.ts.net:5001` |
 | Uptime Kuma | (never public) | <http://status.localhost> | `http://homelab-db.<tailnet>.ts.net:3001` |
 | Postgres | (never public) | (no host port) | `homelab-db.<tailnet>.ts.net:5432` |
+| Files (OpenCloud) | (never public) | | <https://files.josuedev.dpdns.org> (tailnet only, [docs/files.md](docs/files.md)) |
 
 On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
 
@@ -41,6 +42,7 @@ On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
 - [docs/mcp.md](docs/mcp.md) – MCP servers for Claude Code (GitHub, Firefox/Zen) and the `GITHUB_PAT` they need; vendored agent skills (`gt`, Safari).
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
 - [docs/forgejo.md](docs/forgejo.md) – Forgejo (self-hosted git, E10): first admin, SSH over Tailscale, backups, limits.
+- [docs/files.md](docs/files.md) – Files: OpenCloud + Euro-Office (E10), tailnet only; Android/desktop setup, backups.
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
 - [docs/host.md](docs/host.md) – CachyOS production PC: Docker + Compose install, enabled on boot.
 - [docs/writeup.md](docs/writeup.md) – write-up: self-hosting Java + AI projects behind CGNAT with Docker, Traefik and Cloudflare Tunnel.
@@ -168,7 +170,7 @@ docker-socket-proxy) and would update containers without a matching git change.
 
 | Service               | Network    | Notes |
 |-----------------------|------------|-------|
-| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. |
+| `traefik`             | `proxy`, `internal` | Reverse proxy, entrypoint `web` (:80) published on `127.0.0.1` only. Dashboard at <http://traefik.localhost/dashboard/> (no auth, so loopback only; Cloudflare Access in #16). Reads Docker via `docker-socket-proxy`, never the socket. `exposedbydefault=false`: a container is routed only with `traefik.enable=true`. Entrypoint `tailnet` (:443, not published) serves tailnet-only HTTPS with Let's Encrypt DNS-01 certs ([docs/files.md](docs/files.md)). |
 | `dockge`              | `proxy`    | Stack manager UI at <http://dockge.localhost> (`louislam/dockge:1.5.0`). Manages the stacks in `services/`. Mounts the raw Docker socket (exception, see below). |
 | `api`                 | `proxy`, `internal` | Spring Boot API ([apps/api](apps/api/README.md)). Forgejo registry image in prod, built locally on the Mac (see Dev vs production). Uses Postgres (`internal`), Flyway migrates on start. Public at `https://api.<domain>`, local at `api.localhost`. |
 | `portfolio`           | `proxy`    | Next.js portfolio ([apps/portfolio](apps/portfolio/README.md)). Forgejo registry image in prod, built locally on the Mac. Public at the apex `https://<domain>` (`www.` redirects there), local at <http://portfolio.localhost>. |
@@ -179,7 +181,9 @@ docker-socket-proxy) and would update containers without a matching git change.
 | `postgres-backup`     | `internal` | Daily `pg_dump` of every app DB (`BACKUP_DATABASES`: homelab, forgejo) to `./backups/postgres`, 7-day retention. See below. |
 | `forgejo-db-init`     | `internal` | One-shot: creates the `forgejo` role + DB on Postgres ([`scripts/pg-create-db.sh`](scripts/pg-create-db.sh), idempotent), then exits. |
 | `forgejo`             | `proxy`, `internal` | Self-hosted git ([docs/forgejo.md](docs/forgejo.md), `codeberg.org/forgejo/forgejo:17.0.1-rootless`). Public at `https://git.<domain>`, local at `git.localhost`; SSH only over Tailscale. Registration disabled. |
-| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres and the admin UIs (see Private access). |
+| `opencloud`           | `proxy`    | File storage + sync ([docs/files.md](docs/files.md), `opencloudeu/opencloud-rolling:9.1.0`). Tailnet only at `https://files.<domain>` (Traefik entrypoint `tailnet`). No database. |
+| `euro-office`         | `proxy`    | Office editor for OpenCloud (WOPI), `ghcr.io/euro-office/documentserver:v9.3.7-1`. Tailnet only at `https://office.<domain>`. Stateless. |
+| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres, the admin UIs and HTTPS for files (see Private access). |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Only `docker-socket-proxy` (read-only) and `dockge` (read-write, see below) mount
@@ -207,6 +211,7 @@ The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only
 | `http://homelab-db.<tailnet>.ts.net:3001` | Uptime Kuma | Kuma account |
 | `http://homelab-db.<tailnet>.ts.net:8080/dashboard/` | Traefik dashboard (entrypoint `admin`) | none: tailnet membership is the gate |
 | `ssh://git@homelab-db.<tailnet>.ts.net/<owner>/<repo>.git` | Forgejo git over SSH (`forgejo:2222`) | your SSH key in Forgejo |
+| `https://files.<domain>`, `https://office.<domain>` (port 443) | Traefik entrypoint `tailnet` → OpenCloud / Euro-Office ([docs/files.md](docs/files.md)) | OpenCloud account |
 
 None of these are published on the host, the LAN or the internet (the tunnel only reaches Traefik's
 `public` entrypoint). Traffic is encrypted by WireGuard, so plain `http://` is fine here. This replaces

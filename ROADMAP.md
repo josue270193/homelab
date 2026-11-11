@@ -181,7 +181,7 @@ GitHub stays as a public push mirror. Photos and files are private (Tailscale on
 - **10.6 Photos: Immich** (#124)
   AC: Tailscale only; library on existing free space for now; phone backup works; no sole copies before 10.8.
 - **10.7 Files** (#125)
-  AC: Nextcloud vs Seafile decided; Tailscale only; desktop + phone sync.
+  AC: Nextcloud vs Seafile decided (→ OpenCloud + Euro-Office instead, docs/files.md); Tailscale only; desktop + phone sync.
 - **10.8 Backups for user data** (#126)
   AC: encrypted offsite (restic), daily, alerts; restore tested.
 

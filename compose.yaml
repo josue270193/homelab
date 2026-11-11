@@ -25,6 +25,17 @@ services:
       - --entrypoints.public.forwardedHeaders.insecure=true
       # Admin over Tailscale: tailnet :8080 → traefik:8081 (see tailscale/serve.json). Not published.
       - --entrypoints.admin.address=:8081
+      # Tailnet-only HTTPS (#125): tailnet :443 -> traefik:443 as raw TCP (tailscale/serve.json), so TLS
+      # ends here with a real Let's Encrypt cert for files./office.<domain>. Not published on the host,
+      # not reachable through the tunnel (cloudflared only talks to :8000). No read timeout: big uploads.
+      - --entrypoints.tailnet.address=:443
+      - --entrypoints.tailnet.http.tls.certresolver=letsencrypt
+      - --entrypoints.tailnet.transport.respondingTimeouts.readTimeout=0
+      # Certs by DNS-01 against Cloudflare: works although these names point at a tailnet IP that
+      # Let's Encrypt can't reach. Token: Zone > DNS > Edit on the zone only (docs/files.md).
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --providers.docker=true
       - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
@@ -32,6 +43,10 @@ services:
       - --api.dashboard=true
       - --ping=true
       - --log.level=INFO
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}   # empty: tailnet routers have no valid cert (rest works)
+    volumes:
+      - ./data/traefik:/letsencrypt   # acme.json (private keys): git-ignored, back it up with data/
     ports:
       # Loopback only: the dashboard has no auth, so it must not be reachable from the LAN.
       # Host port configurable so other local stacks can keep :80 (Mac: TRAEFIK_HTTP_PORT=8880).
@@ -50,8 +65,13 @@ services:
     depends_on:
       - docker-socket-proxy
     networks:
-      - proxy
-      - internal
+      proxy:
+        # Containers resolve the tailnet names to Traefik, so OpenCloud and Euro-Office reach each other
+        # at the same https:// URLs the browser uses (WOPI + OIDC need that), with the same valid cert.
+        aliases:
+          - files.${DOMAIN:-localhost}
+          - office.${DOMAIN:-localhost}
+      internal: {}
     labels:
       traefik.enable: "true"
       # Admin UI: local entrypoint only, never public (no auth). Remote access via Tailscale.
@@ -485,9 +505,104 @@ services:
     networks:
       - ci
 
+  # OpenCloud: file storage + sync (E10, #125). Tailnet only: https://files.<domain> resolves (public DNS)
+  # to homelab-db's Tailscale IP; Traefik's `tailnet` entrypoint serves it with a Let's Encrypt cert.
+  # No database: metadata lives on disk next to the files. Users/login: built-in IDM + OIDC provider.
+  # The collaboration (WOPI) service runs in-process and opens Office files in `euro-office`.
+  # Docs: docs/files.md.
+  opencloud:
+    image: opencloudeu/opencloud-rolling:9.1.0
+    restart: unless-stopped
+    logging: *default-logging
+    user: "1000:1000"
+    entrypoint: ["/bin/sh"]
+    # `init` writes /etc/opencloud/opencloud.yaml with generated secrets on the first start and fails
+    # harmlessly afterwards (file exists).
+    command: ["-c", "opencloud init || true; exec opencloud server"]
+    environment:
+      TZ: ${TZ:-UTC}
+      OC_URL: https://files.${DOMAIN:-localhost}
+      OC_LOG_LEVEL: info
+      PROXY_TLS: "false"                  # TLS ends at Traefik
+      OC_INSECURE: "false"                # real certs everywhere (also answers init's prompt)
+      PROXY_ENABLE_BASIC_AUTH: "false"    # clients log in with OIDC
+      IDM_CREATE_DEMO_USERS: "false"
+      IDM_ADMIN_PASSWORD: ${OPENCLOUD_ADMIN_PASSWORD:?set OPENCLOUD_ADMIN_PASSWORD in .env}
+      OC_DEFAULT_LANGUAGE: ${OPENCLOUD_LANGUAGE:-en}
+      OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "true"
+      FRONTEND_ARCHIVER_MAX_SIZE: "10000000000"
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/csp.yaml
+      EURO_OFFICE_DOMAIN: office.${DOMAIN:-localhost}   # read by csp.yaml
+      # Office documents (WOPI) -> Euro-Office. Same URLs as the browser: inside Docker both names
+      # resolve to Traefik (network aliases), so certs and hostnames match on every hop.
+      OC_ADD_RUN_SERVICES: collaboration
+      COLLABORATION_APP_NAME: Euro-Office
+      COLLABORATION_APP_PRODUCT: OnlyOffice
+      COLLABORATION_APP_ADDR: https://office.${DOMAIN:-localhost}
+      COLLABORATION_APP_ICON: https://office.${DOMAIN:-localhost}/web-apps/apps/documenteditor/main/resources/img/favicon.ico
+      COLLABORATION_WOPI_SRC: https://files.${DOMAIN:-localhost}
+      COLLABORATION_APP_INSECURE: "false"
+      COLLABORATION_CS3API_DATAGATEWAY_INSECURE: "false"
+      COLLABORATION_APP_PROOF_DISABLE: "true"   # Euro-Office doesn't sign WOPI requests (upstream default)
+    volumes:
+      - ./opencloud/csp.yaml:/etc/opencloud/csp.yaml:ro
+      - ./opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml:ro
+      - ./data/opencloud/config:/etc/opencloud      # opencloud.yaml with generated secrets: keep + back up
+      - ${OPENCLOUD_DATA_DIR:?set OPENCLOUD_DATA_DIR in .env}:/var/lib/opencloud   # files + metadata
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:9205/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+    depends_on:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # Traefik routes here; reaches office.<domain> through Traefik
+    labels:
+      traefik.enable: "true"
+      # Tailnet only: no `web`/`public` router. OIDC needs one URL (OC_URL), so no *.localhost route.
+      traefik.http.routers.opencloud.rule: Host(`files.${DOMAIN:-localhost}`)
+      traefik.http.routers.opencloud.entrypoints: tailnet
+      traefik.http.routers.opencloud.service: opencloud
+      traefik.http.services.opencloud.loadbalancer.server.port: "9200"
+
+  # Euro-Office document server (#125): edits .docx/.xlsx/.pptx (and ODF) inside OpenCloud via WOPI.
+  # Tailnet only at https://office.<domain>. Community integration, not officially supported by
+  # OpenCloud (docs/files.md). Stateless: documents are saved back to OpenCloud. Needs ~1.5 GB RAM.
+  euro-office:
+    image: ghcr.io/euro-office/documentserver:v9.3.7-1
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+      WOPI_ENABLED: "true"
+      USE_UNAUTHORIZED_STORAGE: "false"   # verify OpenCloud's cert
+      JWT_SECRET: ${EURO_OFFICE_JWT_SECRET:?set EURO_OFFICE_JWT_SECRET in .env}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1/hosting/discovery"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+      start_interval: 5s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # Traefik routes here; fetches/saves files at files.<domain> through Traefik
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.euro-office.rule: Host(`office.${DOMAIN:-localhost}`)
+      traefik.http.routers.euro-office.entrypoints: tailnet
+      traefik.http.routers.euro-office.service: euro-office
+      traefik.http.services.euro-office.loadbalancer.server.port: "80"
+
   # Private access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY the ports in
   # tailscale/serve.json: 5432 postgres, 5001 Dockge, 3001 Uptime Kuma, 8080 Traefik dashboard,
-  # 22 Forgejo SSH.
+  # 22 Forgejo SSH, 443 Traefik `tailnet` (OpenCloud + Euro-Office, #125).
   # Nothing is published on the host or the internet.
   # Userspace networking: no NET_ADMIN / /dev/net/tun needed.
   tailscale:

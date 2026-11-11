@@ -1,0 +1,45 @@
+# Content-Security-Policy for OpenCloud's web UI (#125). Based on opencloud-eu/opencloud-compose
+# config/opencloud/csp.yaml, trimmed to what this stack runs: no Collabora, Keycloak or companion.
+# OpenCloud expands ${VAR|default} from its environment (EURO_OFFICE_DOMAIN is set in compose.yaml).
+directives:
+  child-src:
+    - '''self'''
+  connect-src:
+    - '''self'''
+    - 'blob:'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
+    - 'https://update.opencloud.eu/'
+  default-src:
+    - '''none'''
+  font-src:
+    - '''self'''
+  frame-ancestors:
+    - '''self'''
+  frame-src:
+    - '''self'''
+    - 'blob:'
+    - 'https://${EURO_OFFICE_DOMAIN|office.localhost}/'
+  img-src:
+    - '''self'''
+    - 'data:'
+    - 'blob:'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
+    - 'https://${EURO_OFFICE_DOMAIN|office.localhost}/'
+  manifest-src:
+    - '''self'''
+  media-src:
+    - '''self'''
+    - 'blob:'
+  object-src:
+    - '''self'''
+    - 'blob:'
+  script-src:
+    - '''self'''
+    - '''unsafe-inline'''
+  style-src:
+    - '''self'''
+    - '''unsafe-inline'''
+    - 'blob:'
+  worker-src:
+    - "'self'"
+    - 'blob:'
