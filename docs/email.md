@@ -1,20 +1,20 @@
 # Email: hello@josuedev.dpdns.org (E10, #123)
 
 No mail server at home. Receiving goes through **Cloudflare Email Routing**, sending through
-**Resend**. Nothing runs in Docker for this; it's DNS plus two accounts.
+**Amazon SES**. Nothing runs in Docker for this; it's DNS plus two accounts.
 
 ```
 inbound:  sender ──MX──> Cloudflare Email Routing ──forward──> personal Gmail
-outbound: Gmail "Send mail as" ──SMTP 587──> Resend (eu-west-1) ──> recipient
+outbound: Gmail "Send mail as" ──SMTP 587──> Amazon SES (eu-central-1) ──> recipient
 ```
 
 | | |
 |---|---|
 | Address | `hello@josuedev.dpdns.org` (catch-all **off**: other local parts bounce) |
 | Receiving | Cloudflare Email Routing → personal Gmail |
-| Sending | Resend, region `eu-west-1`, SMTP `smtp.resend.com:587` (STARTTLS), user `resend` |
-| SPF / DKIM / DMARC | Cloudflare SPF for the root, Resend DKIM `resend._domainkey`, Resend return path `send.`, DMARC `p=quarantine` |
-| Credentials | Resend API key with **Sending access** for this domain only: password manager (later `.env` for #145), never in git |
+| Sending | Amazon SES, region `eu-central-1`, SMTP `email-smtp.eu-central-1.amazonaws.com:587` (STARTTLS) |
+| SPF / DKIM / DMARC | Cloudflare SPF for the root, SES Easy DKIM, custom MAIL FROM `bounce.`, DMARC `p=quarantine` |
+| Credentials | SES SMTP user/password: password manager only, never in git or `.env` |
 
 ## Why not a mail server at home
 
@@ -22,25 +22,20 @@ Checked 2026-11-11 from the PC:
 
 - **No PTR (reverse DNS)** for the public IP, and it's a shared CGNAT address the ISP won't give a PTR
   for. Gmail rejects mail from IPs without one (`550-5.7.25`); Outlook spam-folders it.
-- **No inbound ports** (CGNAT): Cloudflare Tunnel only carries HTTP(S), so inbound MX on port 25 is
-  impossible, and so is a home SMTP server Gmail could reach.
+- **No inbound ports** (CGNAT): Gmail's "Send mail as" must reach the SMTP server from the internet, and
+  Cloudflare Tunnel only carries HTTP(S) publicly. Inbound MX on port 25 is impossible for the same reason.
 - Outbound port 25 is open and the IP isn't listed today, but a shared dynamic IP can be listed by
   someone else at any time.
 
-A real mail server would need a VPS with a fixed IP and PTR in front of the homelab. A homelab SMTP
-container that apps send through, delivering via Resend, is #145.
+A homelab SMTP container that apps send through, delivering via SES, is a follow-up issue. A full mail
+server would need a VPS with a fixed IP and PTR.
 
-### Why Resend (2026-11-23)
+### Why SES (2026-11-23)
 
-| Option | Free | Why not |
-|---|---|---|
-| **Resend** | 3,000/month, 100/day, 1 domain | chosen: free, SMTP + API, simple domain setup |
-| Amazon SES | none for new accounts since 2026-07-21 (~$0.10 / 1,000) | paid, sandbox until production access is granted |
-| Cloudflare Email Sending | needs Workers Paid ($5/month) | paid, still beta (SMTP only on 465) |
-| Brevo | 300/day | fine too; free plan adds branding to campaigns |
-
-100/day is plenty for personal mail and homelab alerts. Switching provider later only means new DNS
-records (DKIM + return path) and new SMTP settings.
+`dpdns.org` is on the Public Suffix List, so services treat `josuedev.dpdns.org` as a free hosted
+domain. **Resend** refuses it ("We don't allow free public domains") and Brevo only authenticates
+domains you own. SES verifies through DNS records alone. Cloudflare Email Sending needs Workers Paid
+($5/month) and is still beta. With a real domain later, Resend's free plan would also work.
 
 ## Setup
 
@@ -55,42 +50,51 @@ Cloudflare dashboard → `josuedev.dpdns.org` → **Email → Email Routing**:
 2. **Destination addresses → Add**: the personal Gmail, then click the link in the verification mail.
 3. **Routing rules → Custom address**: `hello` → *Send to* that Gmail. **Catch-all: Disabled** (or "Drop").
 
-### 2. Sending: Resend
+### 2. Sending: Amazon SES
 
-[resend.com](https://resend.com) → **Domains → Add domain** `josuedev.dpdns.org`, region **Ireland
-(eu-west-1)**. Add the records it shows in **Cloudflare → DNS → Records**, all **DNS only** (grey
-cloud), or use Resend's *Auto configure* with Cloudflare:
+AWS console, region **Europe (Frankfurt) eu-central-1** (top right) → **Amazon SES**:
 
-| Type | Name | Content |
-|---|---|---|
-| TXT | `resend._domainkey` | `p=MIGfMA0…` (DKIM public key, from Resend) |
-| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` (priority 10) |
-| TXT | `send` | `v=spf1 include:amazonses.com ~all` |
+1. **Identities → Create identity → Domain** `josuedev.dpdns.org`:
+   - *Use a custom MAIL FROM domain*: `bounce` (→ `bounce.josuedev.dpdns.org`), behavior on MX failure:
+     *Use default MAIL FROM*.
+   - *Easy DKIM*, RSA 2048, *Publish DNS records to Route53*: **off** (DNS is in Cloudflare).
+2. Copy the records SES shows into **Cloudflare → DNS → Records**, all **DNS only** (grey cloud):
 
-`send.` is the return path (envelope MAIL FROM), so it doesn't touch the root SPF that Email Routing
-owns. Click **Verify DNS records** and wait for **Verified** (minutes).
+   | Type | Name | Content |
+   |---|---|---|
+   | CNAME ×3 | `<token>._domainkey` | `<token>.dkim.amazonses.com` |
+   | MX | `bounce` | `feedback-smtp.eu-central-1.amazonses.com` (priority 10) |
+   | TXT | `bounce` | `v=spf1 include:amazonses.com ~all` |
 
-**API Keys → Create**: permission **Sending access**, domain `josuedev.dpdns.org`. That key is the
-SMTP password. It can't read or change the account (the API answers `restricted_api_key`).
+   Wait until the identity shows **Verified** and DKIM **Successful** (minutes to an hour).
+3. **SMTP settings → Create SMTP credentials**: creates an IAM user allowed only `ses:SendRawEmail`.
+   Save the SMTP user name and password **in the password manager** (shown once). These are not the
+   IAM access keys; don't create those.
+4. **Account dashboard → Request production access**: mail type *Transactional*, website
+   `https://josuedev.dpdns.org`, use case: "Personal address hello@ for replies from my personal mail
+   client and contact-form notifications, a few mails per day, no lists or marketing. Bounces and
+   complaints are handled by hand." Until it's approved (about a day), SES only sends **to verified
+   addresses** (sandbox, 200/day).
 
 ### 3. DMARC
 
+Cloudflare → **Email → DMARC Management → Enable**: it adds a `rua` reporting address for the free
+report dashboard. Then set the record (**DNS → Records**, edit or add):
+
 | Type | Name | Content |
 |---|---|---|
-| TXT | `_dmarc` | `v=DMARC1; p=quarantine; adkim=r; aspf=r` |
+| TXT | `_dmarc` | `v=DMARC1; p=quarantine; adkim=s; aspf=r; rua=mailto:<address from DMARC Management>` |
 
-Resend signs with `d=josuedev.dpdns.org` and the return path is `send.josuedev.dpdns.org`, so both
-DKIM and SPF align (relaxed). Optional: Cloudflare → **Email → DMARC Management** adds a `rua=`
-address for a free report dashboard. Once reports show only passing mail for a few weeks, consider
-`p=reject`.
+`adkim=s` works because SES signs with `d=josuedev.dpdns.org`. Once reports show only passing mail for a
+few weeks, consider `p=reject`.
 
 ### 4. Gmail: "Send mail as"
 
 Gmail → **Settings → Accounts and Import → Send mail as → Add another email address**:
 
 - Name `Josue Lopez`, address `hello@josuedev.dpdns.org`, *Treat as an alias*: on.
-- SMTP server `smtp.resend.com`, port **587**, username `resend`, password = the Resend API key,
-  **TLS**.
+- SMTP server `email-smtp.eu-central-1.amazonaws.com`, port **587**, username/password = SES SMTP
+  credentials, **TLS**.
 - Gmail sends a confirmation code to `hello@`, which Cloudflare forwards to the same inbox: paste it.
 - Optional: *When replying to a message: reply from the same address it was sent to*.
 
@@ -101,9 +105,10 @@ d=josuedev.dpdns.org
 dig +short MX  $d                       # route1/2/3.mx.cloudflare.net
 dig +short TXT $d                       # v=spf1 include:_spf.mx.cloudflare.net ~all
 dig +short TXT _dmarc.$d                # v=DMARC1; p=quarantine; ...
-dig +short MX  send.$d                  # 10 feedback-smtp.eu-west-1.amazonses.com.
-dig +short TXT send.$d                  # v=spf1 include:amazonses.com ~all
-dig +short TXT resend._domainkey.$d     # p=MIGfMA0...
+dig +short MX  bounce.$d                # feedback-smtp.eu-central-1.amazonses.com
+dig +short TXT bounce.$d                # v=spf1 include:amazonses.com ~all
+# DKIM: one per token SES shows
+dig +short CNAME <token>._domainkey.$d  # <token>.dkim.amazonses.com
 ```
 
 End-to-end tests:
@@ -118,8 +123,9 @@ End-to-end tests:
 - `dpdns.org` is a free subdomain service; some filters score free domains lower and the domain is
   young. If mail keeps landing in spam despite passing SPF/DKIM/DMARC, the fix is a cheap real
   domain (~10 EUR/year), not more DNS tweaks. Moving only needs these records recreated on the new zone.
-- Cloudflare Email Routing forwards; it can't send. Replies go out through Resend via Gmail.
-- Resend free plan: 100 mails/day, 3,000/month, one domain. Keep bounces and complaints low (no
-  lists, no marketing) or the account gets paused.
-- If the API key leaks: Resend → **API Keys** → delete it, create a new *Sending access* key, update
-  Gmail's SMTP password (and `.env` once #145 uses it).
+- Cloudflare Email Routing forwards; it can't send. Replies go out through SES via Gmail.
+- SES: bounce rate must stay < 5 % and complaints < 0.1 % or the account gets paused. Fine for
+  personal mail; don't send lists from it.
+- Cost: **Essentials** plan (the default for new SES accounts since 2026-07-21): no monthly fee,
+  pay per mail (cents per 1,000). The old 12-month free tier is gone for new accounts. Don't switch
+  to Pro/Enterprise (fixed monthly fee). A billing alarm in AWS Budgets (e.g. $1) catches surprises.
