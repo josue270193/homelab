@@ -1,6 +1,7 @@
 # Lints the portfolio, builds its image for linux/amd64 and linux/arm64 (Mac dev + CachyOS PC),
 # smoke-tests it, and on pushes to main publishes it to the Forgejo registry
-# (git.<domain>/<owner>/homelab-portfolio) as `latest` + `sha-<short sha>`. Same pattern as api-image.yml.
+# (git.<domain>/<owner>/homelab-portfolio) as `latest` + `sha-<short sha>`, then deploys it on the PC
+# (job `deploy`, #151). Same build pattern as api-image.yml.
 # Pull requests build and test only; they never push.
 name: portfolio-image
 
@@ -136,3 +137,40 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+
+  # ---- Deploy (main only, after the publish): the PC pulls and restarts the portfolio (#151) ----
+  # Jobs can't reach the host's Docker (runner-dind, #121). Instead they SSH to the PC, which is the
+  # gateway of the `ci` network, with a key whose authorized_keys entry forces
+  # scripts/deploy-portfolio.sh: the key can run nothing else. Setup: docs/forgejo.md.
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deploy on the PC
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}            # private half of the restricted key
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}    # "homelab-pc <host key>"
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || github.repository_owner }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}              # empty: the job's default gateway
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::DEPLOY_SSH_KEY / DEPLOY_KNOWN_HOSTS secrets missing (docs/forgejo.md)"
+            exit 1
+          fi
+          if [ -z "$DEPLOY_HOST" ]; then
+            # Default route in /proc/net/route: little-endian hex, no iproute2 needed.
+            gw=$(awk '$2 == "00000000" { print $3; exit }' /proc/net/route)
+            DEPLOY_HOST=$(printf '%d.%d.%d.%d' "0x${gw:6:2}" "0x${gw:4:2}" "0x${gw:2:2}" "0x${gw:0:2}")
+          fi
+          dir=$(mktemp -d)
+          trap 'rm -rf "$dir"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$dir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$dir/known_hosts"
+          chmod 600 "$dir/key"
+          # HostKeyAlias: known_hosts is keyed by name, so it doesn't depend on the gateway IP.
+          ssh -i "$dir/key" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
+            -o HostKeyAlias=homelab-pc \
+            "$DEPLOY_USER@$DEPLOY_HOST" deploy-portfolio

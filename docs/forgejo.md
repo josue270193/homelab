@@ -173,6 +173,54 @@ BuildKit container), the PR that added this paragraph went through CI, was merge
 those entries with `docker compose exec -u 0 <service> sh -c 'echo "0.0.0.0 github.com …" >> /etc/hosts'`
 and recreate the three containers afterwards (`docker compose up -d --force-recreate …`).
 
+## Portfolio auto-deploy (#151)
+
+The portfolio deploys itself: after `portfolio-image` publishes on `main`, its `deploy` job SSHes
+to the PC and the PC runs `scripts/deploy-portfolio.sh` (pull `portfolio`, recreate it if the image
+changed, wait for healthy). PRs never deploy. Everything else (code, `.env`, other services) still
+goes out with `scripts/deploy.sh`.
+
+Why SSH: CI jobs run inside `runner-dind` and never see the host's Docker (#121). The job reaches
+the PC as the default gateway of the `ci` network (`172.18.0.1`). The key it uses can do one thing
+only: its `authorized_keys` entry forces the deploy script (`command=`), drops PTY/forwarding
+(`restrict`) and only accepts Docker-network sources (`from=`). Whatever command the job sends is
+ignored.
+
+One-time setup on the PC (from the main checkout):
+
+```sh
+# 1. Deploy key, used only by CI.
+ssh-keygen -t ed25519 -N '' -C forgejo-deploy-portfolio -f ~/.ssh/forgejo_deploy_portfolio
+
+# 2. Allow it to run only the deploy script.
+printf 'command="%s",restrict,from="172.16.0.0/12" %s\n' \
+  "$PWD/scripts/deploy-portfolio.sh" "$(cat ~/.ssh/forgejo_deploy_portfolio.pub)" >> ~/.ssh/authorized_keys
+
+# 3. sshd on. Key-only config: host/sshd/10-homelab.conf (#27). If ufw is enabled, let the
+#    Docker networks reach port 22 (the job connects from runner-dind's `ci` address).
+sudo systemctl enable --now sshd
+sudo ufw allow from 172.16.0.0/12 to any port 22 proto tcp comment 'ci deploy'   # only with ufw
+
+# 4. Values for the Forgejo secrets.
+cat ~/.ssh/forgejo_deploy_portfolio                                             # DEPLOY_SSH_KEY
+printf 'homelab-pc %s\n' "$(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)" # DEPLOY_KNOWN_HOSTS
+```
+
+Then in Forgejo, repo **Settings → Actions → Secrets**, add `DEPLOY_SSH_KEY` and
+`DEPLOY_KNOWN_HOSTS`. Optional **Variables**: `DEPLOY_USER` (default: the repo owner) and
+`DEPLOY_HOST` (default: the job's gateway). The host key is pinned under the alias `homelab-pc`, so
+it doesn't depend on the gateway IP.
+
+Check that the key can't do anything else (from the PC):
+
+```sh
+ssh -i ~/.ssh/forgejo_deploy_portfolio "$USER@172.18.0.1" 'id; bash'   # runs the deploy script, not id/bash
+```
+
+Pin or roll back with `PORTFOLIO_TAG=sha-<short sha>` in `.env`: the script deploys whatever tag
+`.env` names, so a pinned tag stays pinned. To pause auto-deploy, remove the key's line from
+`authorized_keys` (the job then fails red).
+
 ## Recovery: the PC is lost
 
 Forgejo itself runs on the PC, so losing it means losing the code host too. The GitHub mirror is the

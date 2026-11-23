@@ -155,6 +155,11 @@ within 180 s (`DEPLOY_TIMEOUT`). To pin a build instead of `latest`, set `API_TA
 Chosen over Watchtower: Watchtower needs the raw Docker socket (we only expose it through
 docker-socket-proxy) and would update containers without a matching git change.
 
+The **portfolio** doesn't need this step for image-only changes: CI deploys it after publishing
+(#151), via `scripts/deploy-portfolio.sh` behind a restricted SSH key
+([setup](docs/forgejo.md#portfolio-auto-deploy-151)). Run `scripts/deploy.sh` when the change also
+touches `compose.yaml` or `.env`.
+
 ## Networks
 
 | Network    | Purpose                                              | Internet egress |
@@ -493,6 +498,7 @@ The GitHub mirror has no workflows, so nothing runs there.
 | `compose-validate` | `compose` | every PR + push to `main` | `docker compose config` for dev, prod and every `services/*` stack |
 | `api-image` | `build` | PRs/pushes touching `apps/api/**` | builds amd64 + arm64, smoke test with Postgres, publishes to the Forgejo registry on `main` |
 | `portfolio-image` | `build` | PRs/pushes touching `apps/portfolio/**` | lint, builds amd64 + arm64, smoke test on `/api/health`, publishes to the Forgejo registry on `main` |
+| `portfolio-image` | `deploy` | pushes to `main` touching `apps/portfolio/**` | after the publish, SSHes to the PC and runs `scripts/deploy-portfolio.sh` (key restricted to that command, [setup](docs/forgejo.md#portfolio-auto-deploy-151)) |
 
 Run the compose check locally before opening a PR (it uses `.env.example` with dummy secrets, never
 your `.env`). Every `${VAR:?}` in a Compose file that `.env.example` leaves empty gets a dummy value
