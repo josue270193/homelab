@@ -5,14 +5,14 @@ No mail server at home. Receiving goes through **Cloudflare Email Routing**, sen
 
 ```
 inbound:  sender ──MX──> Cloudflare Email Routing ──forward──> personal Gmail
-outbound: Gmail "Send mail as" ──SMTP 587──> Amazon SES (eu-central-1) ──> recipient
+outbound: Gmail "Send mail as" ──SMTP 587──> Amazon SES (eu-north-1) ──> recipient
 ```
 
 | | |
 |---|---|
 | Address | `hello@josuedev.dpdns.org` (catch-all **off**: other local parts bounce) |
 | Receiving | Cloudflare Email Routing → personal Gmail |
-| Sending | Amazon SES, region `eu-central-1`, SMTP `email-smtp.eu-central-1.amazonaws.com:587` (STARTTLS) |
+| Sending | Amazon SES, region `eu-north-1`, SMTP `email-smtp.eu-north-1.amazonaws.com:587` (STARTTLS) |
 | SPF / DKIM / DMARC | Cloudflare SPF for the root, SES Easy DKIM, custom MAIL FROM `bounce.`, DMARC `p=quarantine` |
 | Credentials | SES SMTP user/password: password manager only, never in git or `.env` |
 
@@ -52,7 +52,7 @@ Cloudflare dashboard → `josuedev.dpdns.org` → **Email → Email Routing**:
 
 ### 2. Sending: Amazon SES
 
-AWS console, region **Europe (Frankfurt) eu-central-1** (top right) → **Amazon SES**:
+AWS console, region **Europe (Stockholm) eu-north-1** (top right) → **Amazon SES**:
 
 1. **Identities → Create identity → Domain** `josuedev.dpdns.org`:
    - *Use a custom MAIL FROM domain*: `bounce` (→ `bounce.josuedev.dpdns.org`), behavior on MX failure:
@@ -63,7 +63,7 @@ AWS console, region **Europe (Frankfurt) eu-central-1** (top right) → **Amazon
    | Type | Name | Content |
    |---|---|---|
    | CNAME ×3 | `<token>._domainkey` | `<token>.dkim.amazonses.com` |
-   | MX | `bounce` | `feedback-smtp.eu-central-1.amazonses.com` (priority 10) |
+   | MX | `bounce` | `feedback-smtp.eu-north-1.amazonses.com` (priority 10) |
    | TXT | `bounce` | `v=spf1 include:amazonses.com ~all` |
 
    Wait until the identity shows **Verified** and DKIM **Successful** (minutes to an hour).
@@ -93,7 +93,7 @@ few weeks, consider `p=reject`.
 Gmail → **Settings → Accounts and Import → Send mail as → Add another email address**:
 
 - Name `Josue Lopez`, address `hello@josuedev.dpdns.org`, *Treat as an alias*: on.
-- SMTP server `email-smtp.eu-central-1.amazonaws.com`, port **587**, username/password = SES SMTP
+- SMTP server `email-smtp.eu-north-1.amazonaws.com`, port **587**, username/password = SES SMTP
   credentials, **TLS**.
 - Gmail sends a confirmation code to `hello@`, which Cloudflare forwards to the same inbox: paste it.
 - Optional: *When replying to a message: reply from the same address it was sent to*.
@@ -105,7 +105,7 @@ d=josuedev.dpdns.org
 dig +short MX  $d                       # route1/2/3.mx.cloudflare.net
 dig +short TXT $d                       # v=spf1 include:_spf.mx.cloudflare.net ~all
 dig +short TXT _dmarc.$d                # v=DMARC1; p=quarantine; ...
-dig +short MX  bounce.$d                # feedback-smtp.eu-central-1.amazonses.com
+dig +short MX  bounce.$d                # feedback-smtp.eu-north-1.amazonses.com
 dig +short TXT bounce.$d                # v=spf1 include:amazonses.com ~all
 # DKIM: one per token SES shows
 dig +short CNAME <token>._domainkey.$d  # <token>.dkim.amazonses.com
