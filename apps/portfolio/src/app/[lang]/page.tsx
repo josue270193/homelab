@@ -106,13 +106,26 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
                           href={project.repo}
                           variant="primary"
                           size="sm"
-                          icon="github"
+                          icon="forgejo"
                           srLabel={t.sourceCodeOf(project.name)}
                           newTabHint={t.opensInNewTab}
                         >
                           {t.sourceCode}
                         </LinkButton>
                       </li>
+                      {project.mirror && (
+                        <li>
+                          <LinkButton
+                            href={project.mirror}
+                            size="sm"
+                            icon="github"
+                            srLabel={t.sourceCodeOf(project.name)}
+                            newTabHint={t.opensInNewTab}
+                          >
+                            {t.mirrorOnGithub}
+                          </LinkButton>
+                        </li>
+                      )}
                       {project.demos?.map((demo) => (
                         <li key={demo.id}>
                           <LinkButton href={demo.href} size="sm" newTabHint={t.opensInNewTab}>

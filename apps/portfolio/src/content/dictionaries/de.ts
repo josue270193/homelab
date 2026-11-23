@@ -20,6 +20,7 @@ export const de: Dictionary = {
   technologies: "Technologien",
   sourceCode: "Quellcode",
   sourceCodeOf: (project: string) => ` von ${project}`,
+  mirrorOnGithub: "GitHub-Spiegel",
   live: "Live",
   opensInNewTab: "(öffnet in neuem Tab)",
   contactIntro: "Lust auf Zusammenarbeit oder einfach Hallo sagen? Hier findest du mich:",

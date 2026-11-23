@@ -270,6 +270,9 @@ docker pull git.<domain>/josue/homelab-portfolio:latest   # or :sha-<short sha> 
 - `npm audit` reports moderate issues only in dev tooling (ESLint → `minimatch`); runtime deps:
   `npm audit --omit=dev` → 0.
 - Telemetry: set `NEXT_TELEMETRY_DISABLED=1` (CI and Docker do).
+- Links (#147): Forgejo is the main source link (project card + first contact link); GitHub is shown
+  second as the read-only mirror. The Forgejo icon path is from [Simple Icons](https://simpleicons.org)
+  13.21.0, licensed [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 - Icon (#117): `src/app/icon.svg` is the 👾 emoji (U+1F47E) from [Twemoji](https://github.com/jdecked/twemoji)
   15.1.0, licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). `src/app/apple-icon.tsx`
   renders the same SVG to a 180×180 PNG at build time (no network). There is no `favicon.ico`:

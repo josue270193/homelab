@@ -19,6 +19,7 @@ export const en = {
   technologies: "Technologies",
   sourceCode: "Source code",
   sourceCodeOf: (project: string) => ` of ${project}`,
+  mirrorOnGithub: "GitHub mirror",
   live: "Live",
   opensInNewTab: "(opens in a new tab)",
   contactIntro: "Want to work together or just say hi? Find me here:",

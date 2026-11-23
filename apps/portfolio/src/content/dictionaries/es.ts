@@ -20,6 +20,7 @@ export const es: Dictionary = {
   technologies: "Tecnologías",
   sourceCode: "Código fuente",
   sourceCodeOf: (project: string) => ` de ${project}`,
+  mirrorOnGithub: "Espejo en GitHub",
   live: "En vivo",
   opensInNewTab: "(se abre en una pestaña nueva)",
   contactIntro: "¿Quieres trabajar juntos o simplemente saludar? Encuéntrame aquí:",
