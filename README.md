@@ -495,7 +495,8 @@ The GitHub mirror has no workflows, so nothing runs there.
 | `portfolio-image` | `build` | PRs/pushes touching `apps/portfolio/**` | lint, builds amd64 + arm64, smoke test on `/api/health`, publishes to the Forgejo registry on `main` |
 
 Run the compose check locally before opening a PR (it uses `.env.example` with dummy secrets, never
-your `.env`):
+your `.env`). Every `${VAR:?}` in a Compose file that `.env.example` leaves empty gets a dummy value
+automatically, so a new required secret only needs its line in `.env.example`:
 
 ```bash
 ./scripts/validate-compose.sh

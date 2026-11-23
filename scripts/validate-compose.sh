@@ -8,14 +8,23 @@ cd "$(dirname "$0")/.."
 env_file=$(mktemp)
 trap 'rm -f "$env_file"' EXIT
 
-# Required variables (`${VAR:?}` in compose.yaml) get dummy values; everything else keeps the example's.
-sed -e 's|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=dummy-for-validation|' \
-    -e 's|^FORGEJO_DB_PASSWORD=.*|FORGEJO_DB_PASSWORD=dummy-for-validation|' \
-    -e 's|^FORGEJO_RUNNER_UUID=.*|FORGEJO_RUNNER_UUID=dummy-for-validation|' \
-    -e 's|^FORGEJO_RUNNER_TOKEN=.*|FORGEJO_RUNNER_TOKEN=dummy-for-validation|' \
-    -e "s|^STACKS_DIR=.*|STACKS_DIR=$PWD/services|" \
+# Start from the example; STACKS_DIR must be a real path, COMPOSE_FILE is chosen per check below.
+sed -e "s|^STACKS_DIR=.*|STACKS_DIR=$PWD/services|" \
     -e 's|^COMPOSE_FILE=.*||' \
     .env.example > "$env_file"
+
+# Every required variable (`${VAR:?...}` in any Compose file) that the example leaves empty or
+# omits gets a dummy value, so a new secret can't break this check (#149). Values the example
+# already sets (paths like OPENCLOUD_DATA_DIR) are kept.
+for var in $(grep -ohE '\$\{[A-Za-z0-9_]+:\?' compose*.yaml services/*/compose.yaml | sed -E 's/^\$\{//; s/:\?$//' | sort -u); do
+  if grep -qE "^${var}=.+" "$env_file"; then
+    continue
+  elif grep -qE "^${var}=" "$env_file"; then
+    sed -i.bak "s|^${var}=.*|${var}=dummy-for-validation|" "$env_file" && rm -f "$env_file.bak"
+  else
+    echo "${var}=dummy-for-validation" >> "$env_file"
+  fi
+done
 
 failed=0
 check() {
