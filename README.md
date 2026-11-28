@@ -32,6 +32,7 @@ name, e.g. `homelab-db.tail1234.ts.net`).
 | Uptime Kuma | (never public) | <http://status.localhost> | `http://homelab-db.<tailnet>.ts.net:3001` |
 | Postgres | (never public) | (no host port) | `homelab-db.<tailnet>.ts.net:5432` |
 | Files (OpenCloud) | (never public) | | <https://files.josuedev.dpdns.org> (tailnet only, [docs/files.md](docs/files.md)) |
+| Photos (Immich) | (never public) | | <https://photos.josuedev.dpdns.org> (tailnet only, [docs/photos.md](docs/photos.md)) |
 
 On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
 
@@ -43,6 +44,7 @@ On the Mac (dev), local links need `:8880`: `http://portfolio.localhost:8880`.
 - [docs/network.md](docs/network.md) – home network check: IPv4 is behind CGNAT, hence Cloudflare Tunnel.
 - [docs/forgejo.md](docs/forgejo.md) – Forgejo (self-hosted git, E10): first admin, SSH over Tailscale, backups, limits.
 - [docs/files.md](docs/files.md) – Files: OpenCloud + Euro-Office (E10), tailnet only; Android/desktop setup, backups.
+- [docs/photos.md](docs/photos.md) – Photos: Immich (E10), tailnet only; phone backup, disk usage alert, moving the library.
 - [docs/tunnel.md](docs/tunnel.md) – Cloudflare Tunnel `homelab` (CLI-managed, routes in `cloudflared/config.yml`).
 - [docs/host.md](docs/host.md) – CachyOS production PC: Docker + Compose install, enabled on boot.
 - [docs/writeup.md](docs/writeup.md) – write-up: self-hosting Java + AI projects behind CGNAT with Docker, Traefik and Cloudflare Tunnel.
@@ -188,7 +190,12 @@ touches `compose.yaml` or `.env`.
 | `forgejo`             | `proxy`, `internal` | Self-hosted git ([docs/forgejo.md](docs/forgejo.md), `codeberg.org/forgejo/forgejo:17.0.1-rootless`). Public at `https://git.<domain>`, local at `git.localhost`; SSH only over Tailscale. Registration disabled. |
 | `opencloud`           | `proxy`    | File storage + sync ([docs/files.md](docs/files.md), `opencloudeu/opencloud-rolling:9.1.0`). Tailnet only at `https://files.<domain>` (Traefik entrypoint `tailnet`). No database. |
 | `euro-office`         | `proxy`    | Office editor for OpenCloud (WOPI), `ghcr.io/euro-office/documentserver:v9.3.7-1`. Tailnet only at `https://office.<domain>`. Stateless. |
-| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres, the admin UIs and HTTPS for files (see Private access). |
+| `immich-server`       | `proxy`, `internal` | Photo/video backup ([docs/photos.md](docs/photos.md), `ghcr.io/immich-app/immich-server:v3.4.2`). Tailnet only at `https://photos.<domain>`. Library in `IMMICH_LIBRARY_DIR`. |
+| `immich-machine-learning` | `proxy` | Faces + smart search for Immich (CPU). Egress only to download models; no route. |
+| `immich-postgres`     | `internal` | Immich's own Postgres 14 + VectorChord (the shared `postgres` lacks it). Volume `immich-db-data`. |
+| `immich-redis`        | `internal` | Valkey (`valkey/valkey:9.2.1-alpine3.24`) for Immich's job queues. No persistence needed. |
+| `disk-alert`          | `proxy`    | Every 5 min pushes disk usage of `/` and the photo library to an Uptime Kuma Push monitor; down at 80% ([docs/photos.md](docs/photos.md#disk-usage-alert)). |
+| `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres, the admin UIs and HTTPS for files and photos (see Private access). |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
 
 Only `docker-socket-proxy` (read-only) and `dockge` (read-write, see below) mount
@@ -217,6 +224,7 @@ The `tailscale` service joins your tailnet as **`homelab-db`** and forwards only
 | `http://homelab-db.<tailnet>.ts.net:8080/dashboard/` | Traefik dashboard (entrypoint `admin`) | none: tailnet membership is the gate |
 | `ssh://git@homelab-db.<tailnet>.ts.net/<owner>/<repo>.git` | Forgejo git over SSH (`forgejo:2222`) | your SSH key in Forgejo |
 | `https://files.<domain>`, `https://office.<domain>` (port 443) | Traefik entrypoint `tailnet` → OpenCloud / Euro-Office ([docs/files.md](docs/files.md)) | OpenCloud account |
+| `https://photos.<domain>` (port 443) | Traefik entrypoint `tailnet` → Immich ([docs/photos.md](docs/photos.md)) | Immich account |
 
 None of these are published on the host, the LAN or the internet (the tunnel only reaches Traefik's
 `public` entrypoint). Traffic is encrypted by WireGuard, so plain `http://` is fine here. This replaces
@@ -298,6 +306,9 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `cloudflared` | `cloudflared tunnel ready` (≥1 edge connection) |
 | `uptime-kuma` | image's `extra/healthcheck` |
 | `forgejo` | `curl /api/healthz` (checks Forgejo **and** its database) |
+| `immich-server`, `immich-machine-learning`, `immich-postgres` | images' own `HEALTHCHECK` |
+| `immich-redis` | `valkey-cli ping` |
+| `disk-alert` | last check < 15 min old **and** every disk below the threshold |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
 New services: add a Docker `healthcheck` with `start_interval: 2s` (Traefik won't route to a
@@ -325,6 +336,8 @@ Monitors (Add New Monitor; interval 60 s, retries 2):
 | Dockge | HTTP(s) | `http://dockge:5001/` | Dockge UI |
 | Portfolio (public) | HTTP(s) - Keyword | `https://josuedev.dpdns.org/api/health`, keyword `"UP"` | portfolio through Cloudflare → tunnel → Traefik `public` |
 | Forgejo (public) | HTTP(s) - Keyword | `https://git.josuedev.dpdns.org/api/healthz`, keyword `"pass"` | Forgejo + its DB through Cloudflare → tunnel → Traefik `public` |
+| Photos (tailnet) | HTTP(s) - Keyword | `https://photos.<domain>/api/server/ping`, keyword `pong` | Immich + Traefik `tailnet` + its certificate |
+| Disk usage | Push, heartbeat 600 s, retries 0 | URL in `DISK_ALERT_PUSH_URL` (host `uptime-kuma:3001`) | `/` and the photo library below 80% ([docs/photos.md](docs/photos.md#disk-usage-alert)) |
 | Postgres backups | Push (later) | — | daily backup heartbeat; not wired yet (needs the push URL in `pg-backup.sh`) |
 
 Kuma is only on `proxy`: it can't reach `postgres` or `docker-socket-proxy` directly, on purpose.

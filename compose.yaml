@@ -71,6 +71,7 @@ services:
         aliases:
           - files.${DOMAIN:-localhost}
           - office.${DOMAIN:-localhost}
+          - photos.${DOMAIN:-localhost}   # Uptime Kuma checks Immich at its real URL (#124)
       internal: {}
     labels:
       traefik.enable: "true"
@@ -600,9 +601,139 @@ services:
       traefik.http.routers.euro-office.service: euro-office
       traefik.http.services.euro-office.loadbalancer.server.port: "80"
 
+  # Immich: photo/video backup from the phone (E10, #124). Tailnet only at https://photos.<domain>, same
+  # path as OpenCloud (Traefik `tailnet` entrypoint): never through Cloudflare (100 MB upload limit,
+  # and its terms on serving large media). Own Postgres (needs VectorChord) + Valkey, both on
+  # `internal` only. Versions follow upstream's docker-compose.yml of the same release: bump them
+  # together and read the release notes first. Docs: docs/photos.md.
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:v3.4.2
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: immich
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?set IMMICH_DB_PASSWORD in .env}
+      REDIS_HOSTNAME: immich-redis
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+    volumes:
+      # Originals, thumbnails, encoded videos and Immich's own daily DB dumps (backups/). Path in .env,
+      # so moving to a bigger disk later is a config change (docs/photos.md).
+      - ${IMMICH_LIBRARY_DIR:?set IMMICH_LIBRARY_DIR in .env}:/data
+      - /etc/localtime:/etc/localtime:ro
+    # The image has its own HEALTHCHECK (/api/server/ping); Traefik routes once it is healthy.
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # Traefik routes here; reaches machine-learning; egress (version check, map, geodata)
+      - internal   # immich-postgres, immich-redis
+    labels:
+      traefik.enable: "true"
+      # Tailnet only: no `web`/`public` router. Uploads go in one request, so they rely on the
+      # `tailnet` entrypoint having no read timeout and Traefik having no body size limit.
+      traefik.http.routers.immich.rule: Host(`photos.${DOMAIN:-localhost}`)
+      traefik.http.routers.immich.entrypoints: tailnet
+      traefik.http.routers.immich.service: immich
+      traefik.http.services.immich.loadbalancer.server.port: "2283"
+
+  # Face/object recognition and smart search (#124). CPU only; models are downloaded from Hugging Face
+  # on first use into the `immich-model-cache` volume. Image has its own HEALTHCHECK.
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:v3.4.2
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+      MACHINE_LEARNING_MODEL_REVISION: v2   # from upstream's compose of this release
+    volumes:
+      - immich-model-cache:/cache
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # immich-server calls it here; egress for model downloads (no Traefik labels)
+
+  # Immich's own Postgres (#124): it needs the VectorChord extension, which the shared `postgres` lacks.
+  # Pinned by digest like upstream. Only on `internal`: no published ports, no internet egress.
+  immich-postgres:
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-UTC}
+      POSTGRES_USER: immich
+      POSTGRES_DB: immich
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD:?set IMMICH_DB_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - immich-db-data:/var/lib/postgresql/data
+    shm_size: 128mb
+    # The image has its own HEALTHCHECK.
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  immich-redis:
+    image: valkey/valkey:9.2.1-alpine3.24
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  # Disk usage alert (#124): every 5 min, pushes the use of `/` (and the photo library's disk) to an
+  # Uptime Kuma Push monitor: status=up below DISK_ALERT_PERCENT, status=down at or above it, so Kuma
+  # notifies (Telegram). No push at all (container dead) also turns the monitor down.
+  # Reads only filesystem sizes (statfs), as `nobody`, with the host paths mounted read-only.
+  disk-alert:
+    image: alpine:3.24.4
+    restart: unless-stopped
+    logging: *default-logging
+    user: "65534:65534"
+    entrypoint: ["/bin/sh", "/disk-alert.sh"]
+    environment:
+      DISK_ALERT_PUSH_URL: ${DISK_ALERT_PUSH_URL:-}   # empty: only logs (docs/photos.md)
+      DISK_ALERT_PERCENT: ${DISK_ALERT_PERCENT:-80}
+      DISK_ALERT_INTERVAL: "300"
+    volumes:
+      - ./scripts/disk-alert.sh:/disk-alert.sh:ro
+      - /:/host/root:ro
+      - ${IMMICH_LIBRARY_DIR:?set IMMICH_LIBRARY_DIR in .env}:/host/photos:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Healthy while the loop runs (status file < 15 min old) and every disk is below the threshold.
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/disk-alert.ok -mmin -15 2>/dev/null)\""]
+      interval: 5m
+      timeout: 5s
+      start_period: 30s
+      start_interval: 2s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy      # reaches uptime-kuma:3001
+
   # Private access over Tailscale. Joins the tailnet as `homelab-db` and forwards ONLY the ports in
   # tailscale/serve.json: 5432 postgres, 5001 Dockge, 3001 Uptime Kuma, 8080 Traefik dashboard,
-  # 22 Forgejo SSH, 443 Traefik `tailnet` (OpenCloud + Euro-Office, #125).
+  # 22 Forgejo SSH, 443 Traefik `tailnet` (OpenCloud + Euro-Office #125, Immich #124).
   # Nothing is published on the host or the internet.
   # Userspace networking: no NET_ADMIN / /dev/net/tun needed.
   tailscale:
@@ -644,6 +775,8 @@ services:
 volumes:
   postgres-data:
   uptime-kuma-data:
+  immich-db-data:
+  immich-model-cache:
   runner-dind:
   runner-certs:
 
