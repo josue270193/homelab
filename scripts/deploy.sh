@@ -42,6 +42,12 @@ after=$(git rev-parse --short HEAD)
 
 log "validate"
 docker compose config -q
+# #124 moved Postgres to a new volume by dump + restore. Starting it before that would give Forgejo
+# and the API an empty database, so refuse until scripts/pg-migrate-vchord.sh has run.
+if docker volume inspect homelab_postgres-data >/dev/null 2>&1 \
+  && ! docker volume inspect homelab_postgres18-data >/dev/null 2>&1; then
+  die "Postgres data not migrated yet: run scripts/pg-migrate-vchord.sh first (docs/photos.md)"
+fi
 
 log "pull images"
 docker compose pull --quiet

@@ -184,16 +184,16 @@ touches `compose.yaml` or `.env`.
 | `cloudflared`         | `proxy`    | Cloudflare Tunnel connector (`cloudflare/cloudflared:2026.10.4`), outbound only. Routes in `cloudflared/config.yml`; see [docs/tunnel.md](docs/tunnel.md). |
 | `uptime-kuma`         | `proxy`    | Uptime monitoring at <http://status.localhost> (`louislam/uptime-kuma:2.5.8-slim-rootless`). Monitors and notifications are configured in its UI (see Monitoring). |
 | `whoami`              | `proxy`    | Test service at <http://whoami.localhost>; echoes the request. Route defined only by its labels (`traefik.enable`, router rule, service port). |
-| `postgres`            | `internal` | `postgres:18.6-alpine3.24`. No published ports, no internet egress. Named volume `postgres-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
-| `postgres-backup`     | `internal` | Daily `pg_dump` of every app DB (`BACKUP_DATABASES`: homelab, forgejo) to `./backups/postgres`, 7-day retention. See below. |
+| `postgres`            | `internal` | Shared Postgres 18 for every app: Immich's image (`ghcr.io/immich-app/postgres:18-vectorchord1.1.1-pgvector0.8.7`, official Postgres + VectorChord/pgvector, [docs/photos.md](docs/photos.md#shared-postgres-and-redis)). No published ports, no internet egress. Named volume `postgres18-data`, `pg_isready` healthcheck. Password required from `.env`. See below. |
+| `redis`               | `internal` | Shared Valkey (`valkey/valkey:9.2.1-alpine3.24`), one DB number per app (0 = Immich). Volume `redis-data`. |
+| `postgres-backup`     | `internal` | Daily `pg_dump` of every app DB (`BACKUP_DATABASES`: homelab, forgejo, immich) to `./backups/postgres`, 7-day retention. See below. |
 | `forgejo-db-init`     | `internal` | One-shot: creates the `forgejo` role + DB on Postgres ([`scripts/pg-create-db.sh`](scripts/pg-create-db.sh), idempotent), then exits. |
 | `forgejo`             | `proxy`, `internal` | Self-hosted git ([docs/forgejo.md](docs/forgejo.md), `codeberg.org/forgejo/forgejo:17.0.1-rootless`). Public at `https://git.<domain>`, local at `git.localhost`; SSH only over Tailscale. Registration disabled. |
 | `opencloud`           | `proxy`    | File storage + sync ([docs/files.md](docs/files.md), `opencloudeu/opencloud-rolling:9.1.0`). Tailnet only at `https://files.<domain>` (Traefik entrypoint `tailnet`). No database. |
 | `euro-office`         | `proxy`    | Office editor for OpenCloud (WOPI), `ghcr.io/euro-office/documentserver:v9.3.7-1`. Tailnet only at `https://office.<domain>`. Stateless. |
 | `immich-server`       | `proxy`, `internal` | Photo/video backup ([docs/photos.md](docs/photos.md), `ghcr.io/immich-app/immich-server:v3.4.2`). Tailnet only at `https://photos.<domain>`. Library in `IMMICH_LIBRARY_DIR`. |
 | `immich-machine-learning` | `proxy` | Faces + smart search for Immich (CPU). Egress only to download models; no route. |
-| `immich-postgres`     | `internal` | Immich's own Postgres 14 + VectorChord (the shared `postgres` lacks it). Volume `immich-db-data`. |
-| `immich-redis`        | `internal` | Valkey (`valkey/valkey:9.2.1-alpine3.24`) for Immich's job queues. No persistence needed. |
+| `immich-db-init`      | `internal` | One-shot: creates the `immich` role + DB and its extensions (`vchord`, `earthdistance`) on Postgres, then exits. |
 | `disk-alert`          | `proxy`    | Every 5 min pushes disk usage of `/` and the photo library to an Uptime Kuma Push monitor; down at 80% ([docs/photos.md](docs/photos.md#disk-usage-alert)). |
 | `tailscale`           | `internal`, `proxy` | Joins your tailnet as `homelab-db`; forwards only Postgres, the admin UIs and HTTPS for files and photos (see Private access). |
 | `docker-socket-proxy` | `internal` | Read-only Docker API at `tcp://docker-socket-proxy:2375` for Traefik. Allows containers, networks, events, version, ping; denies everything else and all writes (HTTP 403). Socket mounted `:ro`, no published ports. |
@@ -206,7 +206,9 @@ variable on the proxy (see
 ### Postgres
 
 - Reachable only as `postgres:5432` from containers on `internal`; no host or LAN port.
-- Data in the named volume `homelab_postgres-data` (mounted at `/var/lib/postgresql`, as Postgres 18+ expects).
+- Data in the named volume `homelab_postgres18-data` (mounted at `/var/lib/postgresql/data`; the image keeps the cluster in `18/` under it).
+  Until #124 it was `postgres:18.6-alpine3.24` on `homelab_postgres-data`; that volume is only kept for rollback
+  ([one-off move](docs/photos.md#one-off-moving-postgres-to-the-new-image-this-pr)).
 - `POSTGRES_*` from `.env` are applied **only when the volume is first created**. Changing the
   password later in `.env` does nothing; change it inside the DB (`ALTER USER ...`) instead.
 - Shell into it: `docker compose exec postgres psql -U homelab -d homelab`.
@@ -306,8 +308,8 @@ Every service has `restart: unless-stopped` (comes back after a crash or reboot,
 | `cloudflared` | `cloudflared tunnel ready` (≥1 edge connection) |
 | `uptime-kuma` | image's `extra/healthcheck` |
 | `forgejo` | `curl /api/healthz` (checks Forgejo **and** its database) |
-| `immich-server`, `immich-machine-learning`, `immich-postgres` | images' own `HEALTHCHECK` |
-| `immich-redis` | `valkey-cli ping` |
+| `immich-server`, `immich-machine-learning` | images' own `HEALTHCHECK` |
+| `redis` | `valkey-cli ping` |
 | `disk-alert` | last check < 15 min old **and** every disk below the threshold |
 | `whoami` | **Traefik** probes `/health` every 10 s (image is `FROM scratch`, no Docker healthcheck possible); on failure Traefik returns 503 |
 
@@ -354,7 +356,7 @@ The bot token is stored only in Kuma's database, never in `.env` or git.
 ## If `data/` is lost
 
 `data/` (git-ignored) is **not backed up**; only Postgres is (`backups/postgres`). Named volumes
-(`homelab_postgres-data`, `homelab_uptime-kuma-data`) live in Docker, not in `data/`, and survive.
+(`homelab_postgres18-data`, `homelab_redis-data`, `homelab_uptime-kuma-data`) live in Docker, not in `data/`, and survive.
 If `data/` is deleted, `docker compose up` recreates empty folders, and the bind-mounted tunnel
 credentials *file* comes back as an empty **directory**. Recovery (done for real on 2026-11-03):
 

@@ -1,7 +1,9 @@
 #!/bin/sh
 # Creates (or updates) one app database + login role on the shared Postgres. Idempotent: safe on
 # every `docker compose up`. Runs as a one-shot service in the postgres image, as the superuser.
-# Env: PGHOST PGUSER PGPASSWORD (superuser), APP_DB, APP_USER, APP_PASSWORD.
+# Env: PGHOST PGUSER PGPASSWORD (superuser), APP_DB, APP_USER, APP_PASSWORD,
+#      APP_EXTENSIONS (optional, space-separated, e.g. "vchord earthdistance"): created in APP_DB WITH
+#      CASCADE by the superuser, so the app role never needs superuser rights.
 set -eu
 : "${APP_DB:?}" "${APP_USER:?}" "${APP_PASSWORD:?}"
 
@@ -19,4 +21,12 @@ SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'user')
 -- Only the owner (and the superuser) may connect.
 REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
 SQL
+
+for ext in ${APP_EXTENSIONS:-}; do
+  psql -v ON_ERROR_STOP=1 -q -d "$APP_DB" -v ext="$ext" <<'SQL'
+SELECT format('CREATE EXTENSION IF NOT EXISTS %I CASCADE', :'ext') \gexec
+SQL
+  echo "extension '$ext' ready in '$APP_DB'"
+done
+
 echo "database '$APP_DB' ready for role '$APP_USER'"
